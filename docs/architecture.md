@@ -18,7 +18,7 @@
 | Cache / Pub-Sub | Redis | 7.x | — |
 | Real-time | Socket.IO + Redis Adapter | 4.x | — |
 | Location encoding | ngeohash | 0.6.x | ADR-005 |
-| Monorepo toolchain | Turborepo | — | — |
+| Shared packages toolchain | npm publish (`@localloop/*`) | — | — |
 
 ---
 
@@ -76,7 +76,7 @@ src/
 
 ## Mobile screen structure
 
-Each screen in `apps/mobile/src/presentation/screens/` is a self-contained folder:
+Each screen in `src/presentation/screens/` (localloop-mobile repo) is a self-contained folder:
 
 ```
 screens/

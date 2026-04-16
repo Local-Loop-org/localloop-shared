@@ -17,7 +17,7 @@
 
 ## Completed
 
-- [x] Monorepo setup (Turborepo, apps/api, apps/mobile, packages/shared-types)
+- [x] Repository split: localloop-api, localloop-mobile, localloop-shared (packages + docs)
 - [x] PostgreSQL + PostGIS docker-compose
 - [x] TypeORM data source config
 - [x] Initial migration: all enums + users table

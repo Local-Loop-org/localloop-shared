@@ -1,5 +1,17 @@
 # LocalLoop Shared — Agent Guide
 
+## Git workflow
+
+Always branch before coding. Never commit without explicit user approval.
+Full rules: see `## Git workflow` in the root `CLAUDE.md`.
+
+```
+□ On a feature branch? → git checkout -b <type>/<slug>
+□ User approved changes? → show diff and wait before committing
+```
+
+---
+
 ## What this repo is
 
 Shared TypeScript packages and project documentation for LocalLoop.
