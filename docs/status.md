@@ -11,7 +11,7 @@
 
 ## Last updated
 
-2026-04-15 — Auth flow working (Google OAuth). Full roadmap defined.
+2026-04-15 — RefreshTokenUseCase + POST /auth/refresh implemented and merged to main.
 
 ---
 
@@ -31,15 +31,17 @@
 - [x] Mobile: RootNavigator (unauthenticated → onboarding → home)
 - [x] Mobile: OnboardingScreen (display name + location permission request)
 - [x] Mobile: axios apiClient with auth interceptor
+- [x] Backend: RefreshTokenUseCase + POST /auth/refresh (stateless JWT, validates user active)
+- [x] Jest path alias (@/*) configured — unblocks all future unit tests
 
 ---
 
 ## In progress
 
-**Current task:** Planning — defining roadmap, CI/CD strategy, and test strategy
+**Current task:** Phase 1 cleanup + backend endpoints
 
 **Started:** 2026-04-15
-**Next step:** Phase 1 cleanup (see Up next below)
+**Next step:** Fix TD-01 (JwtStrategy fallback secret), then implement `packages/geo-utils`, then `UserModule`
 
 ---
 
@@ -53,7 +55,7 @@
 - [ ] Add 401 interceptor to `apiClient` that calls `POST /auth/refresh` and retries (blocks all authenticated screens)
 
 **2. Backend — missing Phase 1 endpoints**
-- [ ] `RefreshTokenUseCase` + `POST /auth/refresh`
+- [x] `RefreshTokenUseCase` + `POST /auth/refresh`
 - [ ] UserModule: `GET /users/me`, `PATCH /users/me` (display name, dm_permission)
 - [ ] `PATCH /users/me/location` (coordinate → geohash, lazy update)
 - [ ] `packages/geo-utils`: coordinate→geohash, 8 neighbor cells, proximity label generation
@@ -72,7 +74,7 @@
 **API — unit tests (Jest)**
 - [ ] `ExchangeGoogleTokenUseCase` — mock IUserRepository + SupabaseService + JwtService
 - [ ] `ExchangeAppleTokenUseCase` — same pattern
-- [ ] `RefreshTokenUseCase` — token valid, token expired, token invalid
+- [x] `RefreshTokenUseCase` — 5 tests: valid, expired, invalid, user not found, user inactive
 - [ ] `UpdateUserProfileUseCase` — field validation
 - [ ] `UpdateUserLocationUseCase` — coordinate→geohash conversion, no-op if <300m
 
