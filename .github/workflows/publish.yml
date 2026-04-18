@@ -13,7 +13,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -22,14 +22,10 @@ jobs:
       - name: Build packages
         run: npm run build
 
-      - name: Configure npm auth
-        run: echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Publish @localloop/shared-types
         working-directory: packages/shared-types
         run: |
+          npm config set //registry.npmjs.org/:_authToken "${NODE_AUTH_TOKEN}"
           CURRENT=$(node -p "require('./package.json').version")
           PUBLISHED=$(npm view @localloop/shared-types version 2>/dev/null || echo "none")
           if [ "$CURRENT" != "$PUBLISHED" ]; then
@@ -37,10 +33,13 @@ jobs:
           else
             echo "@localloop/shared-types@$CURRENT already published, skipping."
           fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @localloop/geo-utils
         working-directory: packages/geo-utils
         run: |
+          npm config set //registry.npmjs.org/:_authToken "${NODE_AUTH_TOKEN}"
           CURRENT=$(node -p "require('./package.json').version")
           PUBLISHED=$(npm view @localloop/geo-utils version 2>/dev/null || echo "none")
           if [ "$CURRENT" != "$PUBLISHED" ]; then
@@ -48,3 +47,5 @@ jobs:
           else
             echo "@localloop/geo-utils@$CURRENT already published, skipping."
           fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
