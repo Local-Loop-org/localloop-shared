@@ -89,13 +89,8 @@ privacy = 'approval_required' → cria GroupJoinRequest (status: pending)
 
 | Termo | Definição |
 |-------|-----------|
-| Geohash | Codificação de coordenadas em string. Precisão 6 = ~1.2km × 0.6km |
 | Âncora | Local físico de referência de um grupo |
-| `dm_permission` | Flag que controla quem pode enviar DMs ao usuário |
-| Lazy Update | Atualizar localização apenas quando há mudança relevante |
 | Célula Vizinha | Uma das 8 células geohash que fazem fronteira com a atual |
-| Label Qualitativo | Descrição de proximidade sem revelar distância exata |
 | Owner | Criador do grupo — permissões totais |
 | Moderador | Promovido pelo owner — pode remover mensagens e membros |
 | Presigned URL | URL temporária para upload direto ao storage |
-| Cursor Pagination | Paginação por ID/timestamp (mais eficiente que OFFSET para chat) |

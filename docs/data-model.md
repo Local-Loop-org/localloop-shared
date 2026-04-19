@@ -172,14 +172,7 @@
 
 ## Key design decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| Geohash CHAR(6) instead of lat/lng | Privacy — coordinates are never stored or returned |
-| Soft delete (`is_deleted`, `is_active`) | Preserve audit trail for moderation; messages can be hidden without data loss |
-| Cursor pagination by `created_at` on messages | OFFSET is O(n); cursor is O(1) for append-heavy chat tables |
-| Denormalized `member_count` on groups | Avoid COUNT(*) on every group list request |
-| UUID primary keys | Avoids ID enumeration attacks; safe to expose in URLs |
-| PostGIS extension | Enables spatial index types if we need radius queries in the future beyond geohash prefix matching |
+See `architecture.md` for full rationale. Summary: geohash for privacy (no coords stored), soft deletes for moderation audit trail, cursor pagination for chat performance, denormalized counters to avoid COUNT(*).
 
 ---
 
