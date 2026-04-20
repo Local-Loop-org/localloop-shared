@@ -11,7 +11,7 @@
 |-------|-----------|---------|----------------|
 | API framework | NestJS | 10.x | ADR-001 |
 | ORM | TypeORM | 0.3.x | ADR-001 |
-| Database | PostgreSQL + PostGIS | 14 + 3.2 | ADR-002 |
+| Database | PostgreSQL + PostGIS | 17 + 3.5 | ADR-002 |
 | Mobile | Expo (React Native) | SDK 55 | ADR-003 |
 | Auth provider | Supabase Auth | 2.x | ADR-004 |
 | Storage | Supabase Storage | 2.x | ADR-004 |

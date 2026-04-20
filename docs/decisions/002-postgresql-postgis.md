@@ -15,7 +15,7 @@ LocalLoop's core feature is proximity-based group discovery. We need to:
 Geohash precision 6 (~1.2km²) was chosen as the primary spatial unit. The immediate approach (geohash prefix matching + neighbor cells) works without PostGIS, but we want the option to add polygon or radius queries later without a migration to a different database.
 
 ## Decision
-We use **PostgreSQL 14 with the PostGIS 3.2 extension**.
+We use **PostgreSQL 17 with the PostGIS 3.5 extension**.
 
 For Phase 1–2, spatial queries use geohash prefix comparison and the 8-neighbor-cell algorithm (no PostGIS functions needed). PostGIS is installed now so that future phases can use `ST_DWithin`, spatial indexes, or geo-polygon group anchors without schema changes.
 
