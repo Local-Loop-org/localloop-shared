@@ -11,7 +11,7 @@
 
 ## Last updated
 
-2026-04-15 — RefreshTokenUseCase + POST /auth/refresh implemented and merged to main.
+2026-04-20 — CI/CD pipelines operational, API deployed to Render + Neon.
 
 ---
 
@@ -33,6 +33,12 @@
 - [x] Mobile: axios apiClient with auth interceptor
 - [x] Backend: RefreshTokenUseCase + POST /auth/refresh (stateless JWT, validates user active)
 - [x] Jest path alias (@/*) configured — unblocks all future unit tests
+- [x] CI: localloop-api — lint + unit tests + integration tests + Docker image build
+- [x] CI: localloop-mobile — lint + type-check + unit tests + EAS Build Android (iOS deferred)
+- [x] CI + publish: localloop-shared — lint + build + auto-publish to npm on push to main
+- [x] CD: API deployed to Render (free tier) + Neon Postgres (free tier, PostGIS enabled)
+- [x] CD: GitHub Actions triggers Render deploy hook after CI passes
+- [x] Environment: .env files configured for both API and mobile repos
 
 ---
 
@@ -67,7 +73,7 @@
 
 **4. Infrastructure**
 - [ ] Add Redis service to `docker-compose.yml`
-- [ ] Fix `JwtStrategy` fallback secret (TD-01) — throw error if `JWT_SECRET` not set
+- [x] Fix `JwtStrategy` fallback secret (TD-01) — throw error if `JWT_SECRET` not set
 
 ### Testing (parallel track — build as you implement)
 
@@ -99,15 +105,18 @@
 
 ### CI/CD
 
-**API — GitHub Actions**
-- [ ] Workflow: `lint → unit tests → integration tests (testcontainers) → docker build`
-- [ ] Trigger: push to `main`, PRs targeting `main`
-- [ ] Secrets: `JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `POSTGRES_*`
+**API — GitHub Actions** ✅
+- [x] Workflow: `lint → unit tests → integration tests → docker build → Render deploy hook`
+- [x] Trigger: push to `main`, PRs targeting `main`
+- [x] Deploy: Render (free tier) triggered via deploy hook after CI passes
 
-**Mobile — GitHub Actions**
-- [ ] Workflow: `lint → unit tests → EAS Build (preview profile)`
-- [ ] Trigger: push to `main`, PRs targeting `main`
-- [ ] Secrets: `EXPO_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+**Mobile — GitHub Actions** ✅
+- [x] Workflow: `lint → type-check → unit tests → EAS Build (Android only)`
+- [x] Trigger: push to `main`, PRs targeting `main`
+- [x] iOS builds deferred until Apple Developer account is set up
+
+**Shared — GitHub Actions** ✅
+- [x] Workflow: `lint → build → npm publish` (auto-publish on push to main)
 
 ---
 
@@ -148,6 +157,12 @@
 - [ ] Full E2E suite on CI (Maestro Cloud or local)
 - [ ] Load testing on WebSocket gateway
 
+### Future — DevOps / Infrastructure (low priority, learning track)
+
+- [ ] Terraform: define all infrastructure as code (Render, Neon, GitHub secrets)
+- [ ] Multiple environments (staging + production)
+- [ ] iOS builds: set up Apple Developer account + EAS credentials for iOS CI
+
 ---
 
 ## Pending decisions blocking work
@@ -163,7 +178,7 @@
 
 | ID | Description | Introduced | Priority |
 |----|-------------|-----------|---------|
-| TD-01 | `JwtStrategy` falls back to `'fallback-secret'` if `JWT_SECRET` not set | Auth module | High |
+| ~~TD-01~~ | ~~`JwtStrategy` fallback secret~~ — **Fixed**: throws error if `JWT_SECRET` not set | Auth module | ~~High~~ |
 | TD-02 | `packages/geo-utils` is empty — blocks location update endpoint | Phase 1 | High |
 | TD-03 | `auth.api.ts` uses hardcoded `localhost:3000` instead of env-based `apiClient` | Auth flow | High |
 | TD-04 | Supabase URL + anon key hardcoded in `supabase.ts` — must move to env vars before any public build | Auth flow | High |
