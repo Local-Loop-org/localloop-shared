@@ -11,7 +11,7 @@
 
 ## Last updated
 
-2026-04-20 — Phase 1 cleanup (env vars, HTTP unification, 401 interceptor) verified complete.
+2026-04-21 — UserModule implemented + geo-utils 1.1.0 published + global ValidationPipe added.
 
 ---
 
@@ -42,15 +42,18 @@
 - [x] CD: API deployed to Render (free tier) + Neon Postgres (free tier, PostGIS enabled)
 - [x] CD: GitHub Actions triggers Render deploy hook after CI passes
 - [x] Environment: .env files configured for both API and mobile repos
+- [x] packages/geo-utils — coordinate→geohash, 8 neighbor cells, proximity labels (v1.1.0 published)
+- [x] UserModule: GET /users/me, PATCH /users/me, PATCH /users/me/location (Clean Architecture)
+- [x] Global ValidationPipe (whitelist + transform) added to API bootstrap
 
 ---
 
 ## In progress
 
-**Current task:** Phase 1 backend endpoints + remaining wiring
+**Current task:** Phase 1 mobile wiring — connect onboarding to backend
 
 **Started:** 2026-04-15
-**Next step:** Implement `packages/geo-utils`, then `UserModule` (GET/PATCH /users/me, PATCH /users/me/location), then wire onboarding to backend
+**Next step:** Wire OnboardingScreen to call PATCH /users/me (display name) and PATCH /users/me/location (coordinates)
 
 ---
 
@@ -65,9 +68,9 @@
 
 **2. Backend — missing Phase 1 endpoints**
 - [x] `RefreshTokenUseCase` + `POST /auth/refresh`
-- [ ] UserModule: `GET /users/me`, `PATCH /users/me` (display name, dm_permission)
-- [ ] `PATCH /users/me/location` (coordinate → geohash, lazy update)
-- [ ] `packages/geo-utils`: coordinate→geohash, 8 neighbor cells, proximity label generation
+- [x] UserModule: `GET /users/me`, `PATCH /users/me` (display name, dm_permission)
+- [x] `PATCH /users/me/location` (coordinate → geohash via geo-utils)
+- [x] `packages/geo-utils`: coordinate→geohash, 8 neighbor cells, proximity label generation (v1.1.0)
 
 **3. Mobile — missing Phase 1 wiring**
 - [ ] OnboardingScreen: call `PATCH /users/me` to persist display name to backend
@@ -182,7 +185,7 @@
 | ID | Description | Introduced | Priority |
 |----|-------------|-----------|---------|
 | ~~TD-01~~ | ~~`JwtStrategy` fallback secret~~ — **Fixed**: throws error if `JWT_SECRET` not set | Auth module | ~~High~~ |
-| TD-02 | `packages/geo-utils` is empty — blocks location update endpoint | Phase 1 | High |
+| ~~TD-02~~ | ~~`packages/geo-utils` is empty~~ — **Fixed**: fully implemented + published as v1.1.0 | Phase 1 | ~~High~~ |
 | ~~TD-03~~ | ~~`auth.api.ts` uses hardcoded `localhost:3000`~~ — **Fixed**: migrated to shared `apiClient` with env-based URL | Auth flow | ~~High~~ |
 | ~~TD-04~~ | ~~Supabase URL + anon key hardcoded~~ — **Fixed**: reads from `EXPO_PUBLIC_*` env vars | Auth flow | ~~High~~ |
 | TD-05 | Onboarding display name never persisted to backend — only clears `isNewUser` in local state | Onboarding | High |
