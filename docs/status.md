@@ -7,11 +7,11 @@
 
 ## Current phase
 
-**Phase 1 — Foundation** (cleanup + completing remaining items)
+**Phase 1 — Foundation complete, unit tests complete.** Integration tests + E2E remain before Phase 2 kickoff.
 
 ## Last updated
 
-2026-04-21 — UserModule implemented + geo-utils 1.1.0 published + global ValidationPipe added.
+2026-04-21 — Onboarding wired to backend, Redis added to docker-compose, Phase 1 unit test coverage landed across API and mobile.
 
 ---
 
@@ -45,50 +45,53 @@
 - [x] packages/geo-utils — coordinate→geohash, 8 neighbor cells, proximity labels (v1.1.0 published)
 - [x] UserModule: GET /users/me, PATCH /users/me, PATCH /users/me/location (Clean Architecture)
 - [x] Global ValidationPipe (whitelist + transform) added to API bootstrap
+- [x] Mobile: OnboardingScreen wired to backend — PATCH /users/me (display name) + PATCH /users/me/location on finish
+- [x] Infrastructure: Redis 7 service added to `docker-compose.yml` (alongside PostGIS)
+- [x] Phase 1 unit test coverage — API use cases + mobile stores/screens (see Testing track)
 
 ---
 
 ## In progress
 
-**Current task:** Phase 1 mobile wiring — connect onboarding to backend
+**Current task:** Phase 1 integration tests (API) — Supertest + test DB covering auth and user endpoints
 
-**Started:** 2026-04-15
-**Next step:** Wire OnboardingScreen to call PATCH /users/me (display name) and PATCH /users/me/location (coordinates)
+**Started:** 2026-04-21
+**Next step:** Set up test DB and write integration tests for `/auth/google`, `/auth/apple`, `/auth/refresh`, then `GET/PATCH /users/me` and `PATCH /users/me/location` (asserting geohash stored, not coords). E2E (Maestro) is a separate task.
 
 ---
 
 ## Up next
 
-### Phase 1 — Complete Foundation
+### Phase 1 — Complete Foundation ✅
 
 **1. Cleanup** ✅
 - [x] Move Supabase URL + anon key to env vars (`EXPO_PUBLIC_*`)
 - [x] Unify HTTP layer: `auth.api.ts` migrated to shared `apiClient` (axios, env-based URL)
 - [x] 401 interceptor on `apiClient` — refresh + retry queue + test coverage
 
-**2. Backend — missing Phase 1 endpoints**
+**2. Backend — Phase 1 endpoints** ✅
 - [x] `RefreshTokenUseCase` + `POST /auth/refresh`
 - [x] UserModule: `GET /users/me`, `PATCH /users/me` (display name, dm_permission)
 - [x] `PATCH /users/me/location` (coordinate → geohash via geo-utils)
 - [x] `packages/geo-utils`: coordinate→geohash, 8 neighbor cells, proximity label generation (v1.1.0)
 
-**3. Mobile — missing Phase 1 wiring**
-- [ ] OnboardingScreen: call `PATCH /users/me` to persist display name to backend
-- [ ] OnboardingScreen: call `PATCH /users/me/location` after granting permission
+**3. Mobile — Phase 1 wiring** ✅
+- [x] OnboardingScreen: call `PATCH /users/me` to persist display name to backend
+- [x] OnboardingScreen: call `PATCH /users/me/location` after granting permission
 - [x] Update `apiClient` base URL from hardcoded to env var
 
-**4. Infrastructure**
-- [ ] Add Redis service to `docker-compose.yml`
+**4. Infrastructure** ✅
+- [x] Add Redis service to `docker-compose.yml`
 - [x] Fix `JwtStrategy` fallback secret (TD-01) — throw error if `JWT_SECRET` not set
 
 ### Testing (parallel track — build as you implement)
 
-**API — unit tests (Jest)**
-- [ ] `ExchangeGoogleTokenUseCase` — mock IUserRepository + SupabaseService + JwtService
-- [ ] `ExchangeAppleTokenUseCase` — same pattern
+**API — unit tests (Jest)** ✅
+- [x] `ExchangeGoogleTokenUseCase` — 6 tests: new user, existing user, provider_id fallback, default displayName, supabase error, no user
+- [x] `ExchangeAppleTokenUseCase` — 7 tests mirroring the Google spec
 - [x] `RefreshTokenUseCase` — 5 tests: valid, expired, invalid, user not found, user inactive
-- [ ] `UpdateUserProfileUseCase` — field validation
-- [ ] `UpdateUserLocationUseCase` — coordinate→geohash conversion, no-op if <300m
+- [x] `UpdateUserProfileUseCase` — 6 tests: not-found, field-by-field updates, no-op, DTO shape
+- [x] `UpdateUserLocationUseCase` — 3 tests: coordinate→geohash via geo-utils, distinct geohashes for distant coords, coordinate boundaries. (<300m no-op deferred — logic not implemented in source yet.)
 
 **API — integration tests (Jest + Supertest + test DB)**
 - [ ] `POST /auth/google` — valid token, invalid token
@@ -98,11 +101,13 @@
 - [ ] `PATCH /users/me` — valid update, invalid fields
 - [ ] `PATCH /users/me/location` — valid coords, verifies geohash stored (not coords)
 
-**Mobile — unit tests (Jest + React Native Testing Library)**
-- [ ] `useAuthStore`: setAuth persists to SecureStore, logout clears all, initialize restores state
-- [ ] `LoginScreen`: renders buttons, shows loader on press, calls setAuth on success, shows error alert on failure
-- [ ] `RootNavigator`: routes to AuthStack / Onboarding / Home based on state
-- [ ] `OnboardingScreen`: validates name length, blocks finish without location, calls APIs on finish
+**Mobile — unit tests (Jest + React Native Testing Library)** ✅
+- [x] `useAuthStore`: setAuth, logout, initialize (3 paths), setNewUserStatus, updateUser — 9 tests
+- [x] `useAuthLogin`: Google/Apple success + error + cancel + no-session + loading — 8 tests
+- [x] `LoginScreen`: renders buttons, dispatches handlers, shows loader — 4 tests
+- [x] `RootNavigator`: auth stack / onboarding / home routing, loader, initialize-on-mount — 5 tests
+- [x] `OnboardingScreen`: name validation, location denied, API calls + updateUser + isNewUser flip on success, alert + isNewUser unchanged on API failure — 6 tests
+- [x] `apiClient`: auth header injection, 401 refresh + retry queue, non-401 pass-through
 
 **E2E (Maestro)**
 - [ ] Flow 1 — Google login → new user → onboarding → home
@@ -188,9 +193,10 @@
 | ~~TD-02~~ | ~~`packages/geo-utils` is empty~~ — **Fixed**: fully implemented + published as v1.1.0 | Phase 1 | ~~High~~ |
 | ~~TD-03~~ | ~~`auth.api.ts` uses hardcoded `localhost:3000`~~ — **Fixed**: migrated to shared `apiClient` with env-based URL | Auth flow | ~~High~~ |
 | ~~TD-04~~ | ~~Supabase URL + anon key hardcoded~~ — **Fixed**: reads from `EXPO_PUBLIC_*` env vars | Auth flow | ~~High~~ |
-| TD-05 | Onboarding display name never persisted to backend — only clears `isNewUser` in local state | Onboarding | High |
+| ~~TD-05~~ | ~~Onboarding display name never persisted to backend~~ — **Fixed**: OnboardingScreen now calls PATCH /users/me and PATCH /users/me/location on finish | Onboarding | ~~High~~ |
 | ~~TD-06~~ | ~~No 401 interceptor on `apiClient`~~ — **Fixed**: interceptor with refresh + retry queue + tests | Auth flow | ~~High~~ |
-| TD-07 | No unit tests exist for any use case | All modules | Medium |
+| ~~TD-07~~ | ~~No unit tests exist for any use case~~ — **Fixed (Phase 1 scope)**: all Phase 1 use cases and mobile screens have unit coverage. Integration tests still pending under Testing track. | All modules | ~~Medium~~ |
+| TD-08 | `UpdateUserLocationUseCase` has no <300m no-op — every location update writes a new geohash even for tiny movements | User module | Low |
 
 ---
 
@@ -198,4 +204,4 @@
 
 | ID | Description | Severity | Discovered |
 |----|-------------|----------|-----------|
-| BUG-01 | `docker-compose.yml` has no Redis service — Phase 2 and Phase 3 will fail at startup | Medium | 2026-04-15 |
+| ~~BUG-01~~ | ~~`docker-compose.yml` has no Redis service~~ — **Fixed**: Redis 7 Alpine service added alongside PostGIS | ~~Medium~~ | 2026-04-15 |
