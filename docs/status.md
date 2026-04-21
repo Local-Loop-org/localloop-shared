@@ -11,7 +11,7 @@
 
 ## Last updated
 
-2026-04-20 — CI/CD pipelines operational, API deployed to Render + Neon.
+2026-04-20 — Phase 1 cleanup (env vars, HTTP unification, 401 interceptor) verified complete.
 
 ---
 
@@ -30,7 +30,10 @@
 - [x] Mobile: session initialization on app start
 - [x] Mobile: RootNavigator (unauthenticated → onboarding → home)
 - [x] Mobile: OnboardingScreen (display name + location permission request)
-- [x] Mobile: axios apiClient with auth interceptor
+- [x] Mobile: axios apiClient with auth interceptor (+ 401 refresh/retry + test coverage)
+- [x] Mobile: Supabase URL + anon key moved to env vars (`EXPO_PUBLIC_*`)
+- [x] Mobile: `auth.api.ts` migrated to shared `apiClient` (axios, env-based URL)
+- [x] Mobile: `apiClient` base URL from env var (`EXPO_PUBLIC_API_URL`)
 - [x] Backend: RefreshTokenUseCase + POST /auth/refresh (stateless JWT, validates user active)
 - [x] Jest path alias (@/*) configured — unblocks all future unit tests
 - [x] CI: localloop-api — lint + unit tests + integration tests + Docker image build
@@ -44,10 +47,10 @@
 
 ## In progress
 
-**Current task:** Phase 1 cleanup + backend endpoints
+**Current task:** Phase 1 backend endpoints + remaining wiring
 
 **Started:** 2026-04-15
-**Next step:** Fix TD-01 (JwtStrategy fallback secret), then implement `packages/geo-utils`, then `UserModule`
+**Next step:** Implement `packages/geo-utils`, then `UserModule` (GET/PATCH /users/me, PATCH /users/me/location), then wire onboarding to backend
 
 ---
 
@@ -55,10 +58,10 @@
 
 ### Phase 1 — Complete Foundation
 
-**1. Cleanup (do first — affects everything else)**
-- [ ] Move Supabase URL + anon key to env vars (`app.config.js` + `EXPO_PUBLIC_*`)
-- [ ] Unify HTTP layer: `auth.api.ts` uses raw `fetch` hardcoded to `localhost:3000` — migrate to `apiClient` (axios)
-- [ ] Add 401 interceptor to `apiClient` that calls `POST /auth/refresh` and retries (blocks all authenticated screens)
+**1. Cleanup** ✅
+- [x] Move Supabase URL + anon key to env vars (`EXPO_PUBLIC_*`)
+- [x] Unify HTTP layer: `auth.api.ts` migrated to shared `apiClient` (axios, env-based URL)
+- [x] 401 interceptor on `apiClient` — refresh + retry queue + test coverage
 
 **2. Backend — missing Phase 1 endpoints**
 - [x] `RefreshTokenUseCase` + `POST /auth/refresh`
@@ -69,7 +72,7 @@
 **3. Mobile — missing Phase 1 wiring**
 - [ ] OnboardingScreen: call `PATCH /users/me` to persist display name to backend
 - [ ] OnboardingScreen: call `PATCH /users/me/location` after granting permission
-- [ ] Update `apiClient` base URL from hardcoded to env var
+- [x] Update `apiClient` base URL from hardcoded to env var
 
 **4. Infrastructure**
 - [ ] Add Redis service to `docker-compose.yml`
@@ -180,10 +183,10 @@
 |----|-------------|-----------|---------|
 | ~~TD-01~~ | ~~`JwtStrategy` fallback secret~~ — **Fixed**: throws error if `JWT_SECRET` not set | Auth module | ~~High~~ |
 | TD-02 | `packages/geo-utils` is empty — blocks location update endpoint | Phase 1 | High |
-| TD-03 | `auth.api.ts` uses hardcoded `localhost:3000` instead of env-based `apiClient` | Auth flow | High |
-| TD-04 | Supabase URL + anon key hardcoded in `supabase.ts` — must move to env vars before any public build | Auth flow | High |
+| ~~TD-03~~ | ~~`auth.api.ts` uses hardcoded `localhost:3000`~~ — **Fixed**: migrated to shared `apiClient` with env-based URL | Auth flow | ~~High~~ |
+| ~~TD-04~~ | ~~Supabase URL + anon key hardcoded~~ — **Fixed**: reads from `EXPO_PUBLIC_*` env vars | Auth flow | ~~High~~ |
 | TD-05 | Onboarding display name never persisted to backend — only clears `isNewUser` in local state | Onboarding | High |
-| TD-06 | No 401 interceptor on `apiClient` — expired tokens cause silent failures on all authenticated calls | Auth flow | High |
+| ~~TD-06~~ | ~~No 401 interceptor on `apiClient`~~ — **Fixed**: interceptor with refresh + retry queue + tests | Auth flow | ~~High~~ |
 | TD-07 | No unit tests exist for any use case | All modules | Medium |
 
 ---
