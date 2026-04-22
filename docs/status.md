@@ -7,11 +7,11 @@
 
 ## Current phase
 
-**Phase 1 — Foundation complete, unit tests complete.** Integration tests + E2E remain before Phase 2 kickoff.
+**Phase 2 — Groups vertical slice (create + discover + join) shipped.** Moderation (approve/reject/ban/leave), Members listing, Redis cache, and Phase 2 tests remain. Phase 1 integration tests + E2E are still pending from earlier.
 
 ## Last updated
 
-2026-04-21 — Onboarding wired to backend, Redis added to docker-compose, Phase 1 unit test coverage landed across API and mobile.
+2026-04-22 — Phase 2 vertical slice merged: `GroupsModule` (5 endpoints) on API; `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen` on mobile; `AuthenticatedStack` nested navigator; `useCurrentLocation` hook; API deployed to Render.
 
 ---
 
@@ -48,15 +48,18 @@
 - [x] Mobile: OnboardingScreen wired to backend — PATCH /users/me (display name) + PATCH /users/me/location on finish
 - [x] Infrastructure: Redis 7 service added to `docker-compose.yml` (alongside PostGIS)
 - [x] Phase 1 unit test coverage — API use cases + mobile stores/screens (see Testing track)
+- [x] Phase 2 vertical slice — API: migration for `groups` / `group_members` / `group_join_requests`; `GroupsModule` with `CreateGroup`, `DiscoverNearbyGroups`, `GetGroupDetail`, `JoinGroup`, `ListJoinRequests` use cases; 5 endpoints under `/groups`
+- [x] Phase 2 vertical slice — Mobile: `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`; `AuthenticatedStack` nested navigator; `useCurrentLocation` hook; `groups.api.ts` client
+- [x] Phase 2 vertical slice — Deploy: API migration applied on Render, Phase 2 endpoints live
 
 ---
 
 ## In progress
 
-**Current task:** Phase 1 integration tests (API) — Supertest + test DB covering auth and user endpoints
+**Current task:** Phase 2 moderation + tests (next sprint)
 
-**Started:** 2026-04-21
-**Next step:** Set up test DB and write integration tests for `/auth/google`, `/auth/apple`, `/auth/refresh`, then `GET/PATCH /users/me` and `PATCH /users/me/location` (asserting geohash stored, not coords). E2E (Maestro) is a separate task.
+**Started:** —
+**Next step:** See "Up next → Phase 2 remaining" below. Phase 1 integration tests (Supertest + test DB) remain pending from earlier and are still tracked.
 
 ---
 
@@ -131,14 +134,20 @@
 
 ---
 
-### Phase 2 — Groups (starts after Phase 1 complete)
+### Phase 2 — Groups
 
-- [ ] Migration: `groups`, `group_members`, `group_join_requests` tables
-- [ ] GroupsModule: `CreateGroupUseCase`, `DiscoverNearbyGroupsUseCase`, `JoinGroupUseCase`, `LeaveGroupUseCase`
-- [ ] Moderation: `ApproveJoinRequestUseCase`, `BanMemberUseCase`
-- [ ] Mobile: GroupDiscovery screen, GroupDetail screen, CreateGroup screen
-- [ ] Redis cache for nearby groups (TTL = 5min per geohash cell)
-- [ ] Unit + integration tests for all use cases
+**Vertical slice — create + discover + join** ✅
+- [x] Migration: `groups`, `group_members`, `group_join_requests` tables
+- [x] GroupsModule: `CreateGroupUseCase`, `DiscoverNearbyGroupsUseCase`, `GetGroupDetailUseCase`, `JoinGroupUseCase`, `ListJoinRequestsUseCase`
+- [x] Mobile: `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`, `AuthenticatedStack`
+
+**Phase 2 remaining**
+- [ ] `LeaveGroupUseCase` + `DELETE /groups/:id/members/me` (owner-can't-leave rule)
+- [ ] Moderation use cases: `ApproveJoinRequestUseCase`, `RejectJoinRequestUseCase`, `BanMemberUseCase`
+- [ ] Endpoints: `PATCH /groups/:id/requests/:requestId`, `DELETE /groups/:id/members/:userId`, `GET /groups/:id/members` (paginated)
+- [ ] Mobile: `GroupMembersScreen` + moderation UI (approve/reject/ban)
+- [ ] Redis cache for `GET /groups/nearby` (TTL = 5min per geohash cell) — blocked on DP-01
+- [ ] Unit + integration tests for all Phase 2 use cases and endpoints
 - [ ] Maestro E2E: discover groups, join open group, join approval group, leave group
 
 ### Phase 3 — Chat
