@@ -7,11 +7,11 @@
 
 ## Current phase
 
-**Phase 2 — Unit tests complete across API + mobile.** All 9 Phase 2 use cases and the mobile surface (4 screens + hook + api module) are now unit-tested. Redis cache (blocked on DP-01), Phase 2 integration tests, and Maestro E2E remain. Phase 1 integration tests + E2E still pending from earlier.
+**Phase 3 Slice 1 — Text chat.** Backend (messages migration + MessagesModule + ChatGateway + Redis adapter) and mobile (messages.api + chat-socket + useGroupChat + GroupChatScreen + nav wiring) complete and unit-tested. Refactoring `useGroupChat` to use React Query (`useInfiniteQuery` for history + optimistic `sendMessage`) before commit — pilots TD-09 adoption.
 
 ## Last updated
 
-2026-04-23 — Phase 2 unit tests landed: 46 new API use-case specs (85 API total) + 5 new mobile test files (92 mobile total across 12 suites). All green.
+2026-04-24 — Phase 3 Slice 1 implementation landed behind the refactor; React Query adopted as the HTTP cache layer (TD-09); RQ migration backlog added below.
 
 ---
 
@@ -59,10 +59,10 @@
 
 ## In progress
 
-**Current task:** Phase 2 integration tests + Maestro E2E
+**Current task:** Phase 3 Slice 1 — React Query refactor of `useGroupChat` (history via `useInfiniteQuery`, optimistic `sendMessage`). Pilots TD-09.
 
-**Started:** —
-**Next step:** Integration tests (Supertest + test DB) for Phase 2 endpoints; Phase 1 integration tests still pending from earlier. Redis cache for `GET /groups/nearby` remains blocked on DP-01. Maestro E2E flows (discover, join open, join approval, leave) still pending.
+**Started:** 2026-04-24
+**Next step:** Install `@tanstack/react-query` in mobile, wire `QueryClientProvider` at app root, convert `useGroupChat`, update `useGroupChat.test.ts` + `GroupChatScreen.test.tsx`. After this slice: Phase 2 integration tests, Maestro E2E, and the RQ migration backlog (see "Up next").
 
 ---
 
@@ -185,6 +185,24 @@
 - [ ] Full E2E suite on CI (Maestro Cloud or local)
 - [ ] Load testing on WebSocket gateway
 
+### RQ migration backlog (TD-09)
+
+Pilot lands in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history + optimistic `sendMessage`). Remaining migrations, each in its own `refactor/rq-<slug>` branch:
+
+**HTTP cache — convert `useState + useEffect` fetch calls to `useQuery`**
+- [ ] `GroupDiscoveryScreen` → `useQuery(['groups', 'nearby', geohash], ...)`
+- [ ] `GroupDetailScreen` → `useQuery(['groups', 'detail', groupId], ...)`
+- [ ] `GroupMembersScreen` → `useInfiniteQuery(['groups', 'members', groupId], ...)`
+- [ ] `GroupDetailScreen` pending requests → `useQuery(['groups', 'requests', groupId], ...)` (replaces `useFocusEffect` manual refetch)
+- [ ] `GET /users/me` (currently only called inside auth flow) — wrap when a user-profile screen exists
+
+**Optimistic mutations — convert to `useMutation` with `onMutate` / rollback**
+- [ ] `joinGroup` — optimistic `myRole` flip (OPEN → member, APPROVAL_REQUIRED → local pending state)
+- [ ] `leaveGroup` — optimistic removal + navigate on success
+- [ ] `banMember` — optimistic removal from members list (already done manually — port to mutation)
+- [ ] `resolveJoinRequest` — optimistic removal from pending list + `memberCount` bump on approve (already done manually — port to mutation)
+- [ ] `updateUserProfile` (PATCH /users/me) — optimistic update of `useAuthStore` user; rollback on failure
+
 ### Future — DevOps / Infrastructure (low priority, learning track)
 
 - [ ] Terraform: define all infrastructure as code (Render, Neon, GitHub secrets)
@@ -214,6 +232,7 @@
 | ~~TD-06~~ | ~~No 401 interceptor on `apiClient`~~ — **Fixed**: interceptor with refresh + retry queue + tests | Auth flow | ~~High~~ |
 | ~~TD-07~~ | ~~No unit tests exist for any use case~~ — **Fixed (Phase 1 scope)**: all Phase 1 use cases and mobile screens have unit coverage. Integration tests still pending under Testing track. | All modules | ~~Medium~~ |
 | TD-08 | `UpdateUserLocationUseCase` has no <300m no-op — every location update writes a new geohash even for tiny movements | User module | Low |
+| TD-09 | Mobile REST endpoints use ad-hoc `useState + useEffect` in every screen — no cache, no dedup, no optimistic updates. Decision: migrate to `@tanstack/react-query`. Phase 3 Slice 1 pilots it in `useGroupChat` (history + optimistic `sendMessage`); remaining surfaces to migrate listed under "RQ migration backlog" in Up next. | Phase 2 mobile | Medium |
 
 ---
 
