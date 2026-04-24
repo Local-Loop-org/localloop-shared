@@ -97,6 +97,32 @@ screens/
 
 ---
 
+## State management
+
+Mobile-only. The app has two distinct kinds of state; pick the right tool, not both.
+
+| Kind | Tool | Examples |
+|------|------|----------|
+| **Server state** — anything fetched from the API | `@tanstack/react-query` | group lists, group detail, members, chat history, pending join requests, `/users/me` |
+| **Client-only state** — lives on device, no server round-trip | `zustand` | auth session (tokens, current user), form drafts, UI-only toggles |
+
+### Rules
+
+- **Every REST endpoint is consumed through React Query.** Use `useQuery` for reads, `useInfiniteQuery` for cursor-paginated lists, `useMutation` for writes. Never pair `useState + useEffect + axios` for server data — it loses the cache, dedup, and retry behavior React Query gives for free.
+- **Mutations that change visible UI state must be optimistic.** Implement `onMutate` (snapshot + update the cache), `onError` (rollback from snapshot), `onSettled` (invalidate or reconcile). Applies to join/leave/ban, role changes, profile edits, message sends.
+- **Real-time events write into the same query cache.** Socket.IO handlers call `queryClient.setQueryData` on the same key the HTTP fetch populated — one source of truth, no parallel `useState` lists. Dedup by server id; reconcile optimistic temps by matching `senderId + content` (mobile-only heuristic, since the backend has no `clientId` contract).
+- **Query keys are hierarchical tuples**, e.g. `['chat', 'history', groupId]`, `['groups', 'nearby', geohash]`, `['groups', 'detail', groupId]`. Keep the shape consistent so partial invalidations (`['groups']`) work predictably.
+- **Do not invalidate on unmount.** Default `gcTime` (5 min) keeps the cache warm so reopening a screen within the window renders instantly. Invalidate only when you know the server state changed (after a mutation, after a push notification).
+- **Zustand stays for auth and ephemeral client state.** Tokens, the current user object, and form drafts are not server state — they do not belong in React Query.
+
+The `QueryClient` is instantiated once in `src/infra/react-query/client.ts` and provided at the app root in `App.tsx`.
+
+### Rationale
+
+Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicated loading/error/retry boilerplate. The chat hook (`useGroupChat`) is the pilot — history via `useInfiniteQuery`, optimistic `sendMessage`, socket events writing into the same cache. Remaining surfaces migrate under TD-09 (see status.md "RQ migration backlog").
+
+---
+
 ## Cross-cutting concerns
 
 ### Error handling

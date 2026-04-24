@@ -7,11 +7,11 @@
 
 ## Current phase
 
-**Phase 3 Slice 1 — Text chat.** Backend (messages migration + MessagesModule + ChatGateway + Redis adapter) and mobile (messages.api + chat-socket + useGroupChat + GroupChatScreen + nav wiring) complete and unit-tested. Refactoring `useGroupChat` to use React Query (`useInfiniteQuery` for history + optimistic `sendMessage`) before commit — pilots TD-09 adoption.
+**Phase 3 Slice 1 — Text chat — DONE.** Backend (messages migration + MessagesModule + ChatGateway + Redis adapter) and mobile (messages.api + chat-socket + useGroupChat + GroupChatScreen + nav wiring) shipped on `feat/phase3-chat-text`, verified end-to-end on two devices (simulator + physical phone) sharing a group chat. React Query pilot (`useInfiniteQuery` for history + optimistic `sendMessage`) landed with the slice. Next candidate work: Phase 3 Slice 2 (media upload), Phase 2 integration tests, or the RQ migration backlog.
 
 ## Last updated
 
-2026-04-24 — Phase 3 Slice 1 implementation landed behind the refactor; React Query adopted as the HTTP cache layer (TD-09); RQ migration backlog added below.
+2026-04-24 — Phase 3 Slice 1 shipped; socket auth moved from `handleConnection` (async, racy) to a namespace middleware (`afterInit → server.use`) after cross-device testing revealed clients could emit `join_group` before auth resolved, leaving the socket outside the room and silently dropping broadcasts.
 
 ---
 
@@ -54,15 +54,13 @@
 - [x] Phase 2 moderation — API: `LeaveGroupUseCase`, `BanMemberUseCase`, `ResolveJoinRequestUseCase` (handles both approve and reject via `action` field), `ListGroupMembersUseCase`; endpoints `PATCH /groups/:id/requests/:requestId`, `DELETE /groups/:id/members/me`, `DELETE /groups/:id/members/:userId`, `GET /groups/:id/members` (paginated)
 - [x] Phase 2 moderation — Mobile: `GroupMembersScreen` + moderation UI (approve/reject/ban) wired into `GroupDetailScreen`; `groups.api.ts` extended
 - [x] Phase 2 unit test coverage — API: specs for all 9 use cases (vertical slice + moderation). Mobile: `useCurrentLocation`, `groups.api`, `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`, `GroupMembersScreen`
+- [x] Phase 3 Slice 1 — Text chat. API: `messages` migration, `MessagesModule` (domain entity + repo, `SendMessage` + `GetMessageHistory` use cases with specs, TypeORM mapper/repo, `GET /groups/:id/messages` history endpoint, Socket.IO `/chat` gateway with `join_group` / `leave_group` / `send_message`, Redis pub-sub adapter with in-memory fallback, namespace middleware auth). Mobile: `messages.api`, `chat-socket`, `useGroupChat` (React Query `useInfiniteQuery` history + optimistic `sendMessage` — TD-09 pilot), `GroupChatScreen` + nav wiring + GroupDetail entry button. Unit test coverage on all new use cases, the gateway, the hook, and the screen.
 
 ---
 
 ## In progress
 
-**Current task:** Phase 3 Slice 1 — React Query refactor of `useGroupChat` (history via `useInfiniteQuery`, optimistic `sendMessage`). Pilots TD-09.
-
-**Started:** 2026-04-24
-**Next step:** Install `@tanstack/react-query` in mobile, wire `QueryClientProvider` at app root, convert `useGroupChat`, update `useGroupChat.test.ts` + `GroupChatScreen.test.tsx`. After this slice: Phase 2 integration tests, Maestro E2E, and the RQ migration backlog (see "Up next").
+**None — between slices.** Phase 3 Slice 1 shipped. Pick the next from "Up next" when ready: Phase 3 Slice 2 (media upload + picker), Phase 2 API integration tests, Maestro E2E (Phase 1/2 flows), or RQ migration backlog (TD-09).
 
 ---
 
@@ -160,12 +158,17 @@
 
 ### Phase 3 — Chat
 
-- [ ] Migration: `messages` table
-- [ ] MessagesModule: `GetMessageHistoryUseCase`, `SendMessageUseCase`
-- [ ] WebSocket gateway (Socket.IO) + Redis adapter for pub-sub
+**Slice 1 — Text chat** ✅
+- [x] Migration: `messages` table
+- [x] MessagesModule: `GetMessageHistoryUseCase`, `SendMessageUseCase`
+- [x] WebSocket gateway (Socket.IO) + Redis adapter for pub-sub
+- [x] Mobile: `GroupChatScreen` (real-time, optimistic sends via React Query)
+- [x] Unit tests: use cases, gateway, hook, screen
+
+**Slice 2 — Media + remaining tests**
 - [ ] Media upload: presigned URL endpoint + Supabase Storage integration
-- [ ] Mobile: ChatScreen (real-time), media picker
-- [ ] Unit + integration tests; WebSocket integration tests
+- [ ] Mobile: media picker + image/video rendering in `GroupChatScreen`
+- [ ] WebSocket integration tests (full ack/broadcast path against a running app + Redis)
 - [ ] Maestro E2E: send text message, send image, receive message in real-time
 
 ### Phase 4 — DMs + Push Notifications
@@ -187,7 +190,7 @@
 
 ### RQ migration backlog (TD-09)
 
-Pilot lands in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history + optimistic `sendMessage`). Remaining migrations, each in its own `refactor/rq-<slug>` branch:
+Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history + optimistic `sendMessage`). Remaining migrations, each in its own `refactor/rq-<slug>` branch:
 
 **HTTP cache — convert `useState + useEffect` fetch calls to `useQuery`**
 - [ ] `GroupDiscoveryScreen` → `useQuery(['groups', 'nearby', geohash], ...)`
