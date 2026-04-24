@@ -7,11 +7,11 @@
 
 ## Current phase
 
-**Phase 2 — Groups vertical slice (create + discover + join) shipped.** Moderation (approve/reject/ban/leave), Members listing, Redis cache, and Phase 2 tests remain. Phase 1 integration tests + E2E are still pending from earlier.
+**Phase 2 — Unit tests complete across API + mobile.** All 9 Phase 2 use cases and the mobile surface (4 screens + hook + api module) are now unit-tested. Redis cache (blocked on DP-01), Phase 2 integration tests, and Maestro E2E remain. Phase 1 integration tests + E2E still pending from earlier.
 
 ## Last updated
 
-2026-04-22 — Phase 2 vertical slice merged: `GroupsModule` (5 endpoints) on API; `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen` on mobile; `AuthenticatedStack` nested navigator; `useCurrentLocation` hook; API deployed to Render.
+2026-04-23 — Phase 2 unit tests landed: 46 new API use-case specs (85 API total) + 5 new mobile test files (92 mobile total across 12 suites). All green.
 
 ---
 
@@ -51,15 +51,18 @@
 - [x] Phase 2 vertical slice — API: migration for `groups` / `group_members` / `group_join_requests`; `GroupsModule` with `CreateGroup`, `DiscoverNearbyGroups`, `GetGroupDetail`, `JoinGroup`, `ListJoinRequests` use cases; 5 endpoints under `/groups`
 - [x] Phase 2 vertical slice — Mobile: `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`; `AuthenticatedStack` nested navigator; `useCurrentLocation` hook; `groups.api.ts` client
 - [x] Phase 2 vertical slice — Deploy: API migration applied on Render, Phase 2 endpoints live
+- [x] Phase 2 moderation — API: `LeaveGroupUseCase`, `BanMemberUseCase`, `ResolveJoinRequestUseCase` (handles both approve and reject via `action` field), `ListGroupMembersUseCase`; endpoints `PATCH /groups/:id/requests/:requestId`, `DELETE /groups/:id/members/me`, `DELETE /groups/:id/members/:userId`, `GET /groups/:id/members` (paginated)
+- [x] Phase 2 moderation — Mobile: `GroupMembersScreen` + moderation UI (approve/reject/ban) wired into `GroupDetailScreen`; `groups.api.ts` extended
+- [x] Phase 2 unit test coverage — API: specs for all 9 use cases (vertical slice + moderation). Mobile: `useCurrentLocation`, `groups.api`, `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`, `GroupMembersScreen`
 
 ---
 
 ## In progress
 
-**Current task:** Phase 2 moderation + tests (next sprint)
+**Current task:** Phase 2 integration tests + Maestro E2E
 
 **Started:** —
-**Next step:** See "Up next → Phase 2 remaining" below. Phase 1 integration tests (Supertest + test DB) remain pending from earlier and are still tracked.
+**Next step:** Integration tests (Supertest + test DB) for Phase 2 endpoints; Phase 1 integration tests still pending from earlier. Redis cache for `GET /groups/nearby` remains blocked on DP-01. Maestro E2E flows (discover, join open, join approval, leave) still pending.
 
 ---
 
@@ -95,6 +98,7 @@
 - [x] `RefreshTokenUseCase` — 5 tests: valid, expired, invalid, user not found, user inactive
 - [x] `UpdateUserProfileUseCase` — 6 tests: not-found, field-by-field updates, no-op, DTO shape
 - [x] `UpdateUserLocationUseCase` — 3 tests: coordinate→geohash via geo-utils, distinct geohashes for distant coords, coordinate boundaries. (<300m no-op deferred — logic not implemented in source yet.)
+- [x] Phase 2 use cases — 46 tests across 9 specs: `CreateGroup`, `DiscoverNearbyGroups`, `GetGroupDetail`, `JoinGroup`, `ListJoinRequests`, `LeaveGroup`, `BanMember`, `ResolveJoinRequest`, `ListGroupMembers`
 
 **API — integration tests (Jest + Supertest + test DB)**
 - [ ] `POST /auth/google` — valid token, invalid token
@@ -111,6 +115,7 @@
 - [x] `RootNavigator`: auth stack / onboarding / home routing, loader, initialize-on-mount — 5 tests
 - [x] `OnboardingScreen`: name validation, location denied, API calls + updateUser + isNewUser flip on success, alert + isNewUser unchanged on API failure — 6 tests
 - [x] `apiClient`: auth header injection, 401 refresh + retry queue, non-401 pass-through
+- [x] Phase 2 mobile — `useCurrentLocation` (4), `groups.api` (9), `CreateGroupScreen` (6), `GroupDiscoveryScreen` (7), `GroupMembersScreen` (9), `GroupDetailScreen` (17)
 
 **E2E (Maestro)**
 - [ ] Flow 1 — Google login → new user → onboarding → home
@@ -141,13 +146,16 @@
 - [x] GroupsModule: `CreateGroupUseCase`, `DiscoverNearbyGroupsUseCase`, `GetGroupDetailUseCase`, `JoinGroupUseCase`, `ListJoinRequestsUseCase`
 - [x] Mobile: `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`, `AuthenticatedStack`
 
+**Moderation slice — leave + approve/reject + ban + members listing** ✅
+- [x] `LeaveGroupUseCase` + `DELETE /groups/:id/members/me` (owner-can't-leave rule)
+- [x] `ResolveJoinRequestUseCase` (single use case handling approve/reject via `action` field) + `BanMemberUseCase`
+- [x] Endpoints: `PATCH /groups/:id/requests/:requestId`, `DELETE /groups/:id/members/:userId`, `GET /groups/:id/members` (paginated)
+- [x] Mobile: `GroupMembersScreen` + moderation UI (approve/reject/ban) wired in `GroupDetailScreen`
+
 **Phase 2 remaining**
-- [ ] `LeaveGroupUseCase` + `DELETE /groups/:id/members/me` (owner-can't-leave rule)
-- [ ] Moderation use cases: `ApproveJoinRequestUseCase`, `RejectJoinRequestUseCase`, `BanMemberUseCase`
-- [ ] Endpoints: `PATCH /groups/:id/requests/:requestId`, `DELETE /groups/:id/members/:userId`, `GET /groups/:id/members` (paginated)
-- [ ] Mobile: `GroupMembersScreen` + moderation UI (approve/reject/ban)
 - [ ] Redis cache for `GET /groups/nearby` (TTL = 5min per geohash cell) — blocked on DP-01
-- [ ] Unit + integration tests for all Phase 2 use cases and endpoints
+- [x] Unit tests for all Phase 2 use cases, mobile screens, hook, api module
+- [ ] Integration tests (Supertest + test DB) for Phase 2 endpoints
 - [ ] Maestro E2E: discover groups, join open group, join approval group, leave group
 
 ### Phase 3 — Chat
