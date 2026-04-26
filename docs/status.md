@@ -7,11 +7,11 @@
 
 ## Current phase
 
-**Phase 3 Slice 1 — Text chat — DONE.** Backend (messages migration + MessagesModule + ChatGateway + Redis adapter) and mobile (messages.api + chat-socket + useGroupChat + GroupChatScreen + nav wiring) shipped on `feat/phase3-chat-text`, verified end-to-end on two devices (simulator + physical phone) sharing a group chat. React Query pilot (`useInfiniteQuery` for history + optimistic `sendMessage`) landed with the slice. Next candidate work: Phase 3 Slice 2 (media upload), Phase 2 integration tests, or the RQ migration backlog.
+**Home redesign — Slice 1 — implementation complete on `feat/home-redesign`, awaiting commit/merge.** Mobile-only: `GroupDiscoveryScreen` replaced by `HomeScreen`, a sectioned home surface that buckets nearby groups by `anchorType` into Lugares (Estabelecimento) → Bairros (Neighborhood) → Prédios (Condo) → Eventos (Event). Establishments + events render as horizontal cards; neighborhoods + condos as vertical rows; empty buckets hidden; CITY excluded. Header is `LocalLoop` title + (no-op) search + `more` action sheet (one item: Sair). Bottom tab bar is presentational only — Início/Inbox/+/Mapa/Perfil — with `+` wired to `CreateGroup`. `useNearbyGroups` (TD-09 expansion) now drives the data fetch via React Query. Route renamed `GroupDiscovery` → `Home` and old screen folder deleted. 121/121 tests green, typecheck clean. Slice 1 ships without "Meus grupos", real bottom-tabs, distance, presence, search, location chip — all tracked as HOME-2..HOME-9 below. Next candidate work: HOME-2 (`GET /groups/me`) → HOME-3 ("Meus grupos" wiring), Chat redesign Slice B (presence + per-message proximity), Phase 3 Slice 2 (media upload), or remaining RQ backlog.
 
 ## Last updated
 
-2026-04-24 — Phase 3 Slice 1 shipped; socket auth moved from `handleConnection` (async, racy) to a namespace middleware (`afterInit → server.use`) after cross-device testing revealed clients could emit `join_group` before auth resolved, leaving the socket outside the room and silently dropping broadcasts.
+2026-04-26 — Home redesign Slice 1 implemented on `feat/home-redesign` (mobile-only). New `HomeScreen` + layout subtree (`HomeHeader`, `SectionLabel`, `DiscoverCard`, `DiscoverRow`, `DiscoverDivider`, `BottomTabBar`); new `useNearbyGroups` hook (key `['groups','nearby', "lat,lng"]`, 30s `staleTime`, gates on coords, calls `userApi.updateLocation` before `groupsApi.getNearbyGroups`); new shared `@/shared/anchor/labels` util holding `ANCHOR_TYPE_LABELS` + `ANCHOR_SECTION_LABELS` (CreateGroupScreen migrated to use it). Route key `GroupDiscovery` → `Home`; `AuthenticatedStack` and `types.ts` updated. Old `GroupDiscoveryScreen/` folder deleted (its 7 tests are subsumed by 8 new HomeScreen tests). Plan captured in `~/.claude/plans/phase-3-slice-1-effervescent-chipmunk.md`.
 
 ---
 
@@ -55,12 +55,14 @@
 - [x] Phase 2 moderation — Mobile: `GroupMembersScreen` + moderation UI (approve/reject/ban) wired into `GroupDetailScreen`; `groups.api.ts` extended
 - [x] Phase 2 unit test coverage — API: specs for all 9 use cases (vertical slice + moderation). Mobile: `useCurrentLocation`, `groups.api`, `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`, `GroupMembersScreen`
 - [x] Phase 3 Slice 1 — Text chat. API: `messages` migration, `MessagesModule` (domain entity + repo, `SendMessage` + `GetMessageHistory` use cases with specs, TypeORM mapper/repo, `GET /groups/:id/messages` history endpoint, Socket.IO `/chat` gateway with `join_group` / `leave_group` / `send_message`, Redis pub-sub adapter with in-memory fallback, namespace middleware auth). Mobile: `messages.api`, `chat-socket`, `useGroupChat` (React Query `useInfiniteQuery` history + optimistic `sendMessage` — TD-09 pilot), `GroupChatScreen` + nav wiring + GroupDetail entry button. Unit test coverage on all new use cases, the gateway, the hook, and the screen.
+- [x] Home redesign — Slice 1 (mobile-only, `feat/home-redesign`). `GroupDiscoveryScreen` replaced by `HomeScreen` with sectioned layout (Lugares / Bairros / Prédios / Eventos via `anchorType`); horizontal cards for establishments + events, vertical rows for neighborhoods + condos; empty buckets hidden; CITY excluded; `LocalLoop` header + `more` action sheet (Sair only); presentational bottom tab bar (Início/Inbox/+/Mapa/Perfil) with `+` → `CreateGroup`. New `useNearbyGroups` React Query hook (key `['groups','nearby', "lat,lng"]`, 30s `staleTime`, calls `userApi.updateLocation` before `groupsApi.getNearbyGroups`). New shared util `@/shared/anchor/labels` (`ANCHOR_TYPE_LABELS` + `ANCHOR_SECTION_LABELS`); CreateGroupScreen migrated. Route renamed `GroupDiscovery` → `Home`; old screen folder deleted. 121/121 tests green, typecheck clean. "Meus grupos" pinned section, real bottom-tabs navigator, distance string, presence, search, and location chip all deferred to HOME-2..HOME-9.
+- [x] Phase 3 Chat redesign — Slice A (mobile-only, `feat/chat-redesign-slice-a`). New `GroupChatScreen` layout: custom header (back / anchor-type icon + tappable group name + chevron / members), pt-BR day separators (HOJE/ONTEM/DD/MM via `date-fns`), peer bubbles (dark surface + line border + asymmetric `borderBottomLeftRadius`), own bubbles (cyan→lavender `LinearGradient` + asymmetric `borderBottomRightRadius`), mono-font timestamps, redesigned composer (inert `+` button, pill `TextInput`, gradient send button). Nav rewire: Discovery → Chat directly (Detail/Members reachable via the chat header). Shared icon system at `src/shared/icons/` — `<Icon name=… size=… color=… strokeWidth=…/>` built on `react-native-svg` covering 30 glyphs + `anchorIconName(AnchorType)` mapping; replaces `@expo/vector-icons`. Theme: added `colors.line/dim/faint` and `colors.accent2` (soft lavender for the gradient pair). Route params: `GroupChat` extended with `anchorType: AnchorType`; both call sites updated. Tests: 114/114 green, typecheck clean. Slice B (proximity badges + presence subtitle) intentionally deferred — needs gateway/geohash work.
 
 ---
 
 ## In progress
 
-**None — between slices.** Phase 3 Slice 1 shipped. Pick the next from "Up next" when ready: Phase 3 Slice 2 (media upload + picker), Phase 2 API integration tests, Maestro E2E (Phase 1/2 flows), or RQ migration backlog (TD-09).
+**Home redesign Slice 1** — implementation complete on `feat/home-redesign` (mobile-only). Awaiting user approval to commit + merge. Chat redesign Slice A is also complete on `feat/chat-redesign-slice-a` and still awaiting commit/merge. Next pick from "Up next": HOME-2 (`GET /groups/me` backend) → HOME-3 ("Meus grupos" wiring), Chat redesign Slice B (proximity + presence), Phase 3 Slice 2 (media upload + picker), Phase 2 API integration tests, Maestro E2E (Phase 1/2 flows), or remaining RQ migration backlog (TD-09).
 
 ---
 
@@ -171,6 +173,34 @@
 - [ ] WebSocket integration tests (full ack/broadcast path against a running app + Redis)
 - [ ] Maestro E2E: send text message, send image, receive message in real-time
 
+**Chat redesign — first pass of new wireframes** (split into two slices)
+
+*Slice A — frontend-only* ✅
+- [x] Custom header on `GroupChatScreen`: back button, anchor-type icon + group name + chevron (tap → `GroupDetailScreen`), members icon (tap → `GroupMembersScreen`)
+- [x] Day separators in the message list (`· HOJE ·`, `· ONTEM ·`, `· DD/MM ·` via `date-fns` + pt-BR locale)
+- [x] Bubble redesign: peer messages dark surface + line border + name above; own messages cyan→lavender gradient with asymmetric corners
+- [x] Input bar redesign: `+` action button (inert until Slice 2 media), pill input, gradient send button
+- [x] Nav flow change: `GroupDiscoveryScreen` opens `GroupChatScreen` directly; detail/members reachable only from the chat header
+- [x] Hide proximity tag and online count in the header until Slice B lands — header rendered without them rather than stubbed
+- [x] Shared icon system at `src/shared/icons/` (custom `<Icon>` on `react-native-svg`, typed `IconName` union, `anchorIconName(AnchorType)` helper); replaces `@expo/vector-icons`
+
+*Slice B — backend-touching pieces*
+- [ ] Per-message proximity label (`AQUI`, `120M`, etc.): extend message DTO with sender-relative-to-viewer proximity, computed at history fetch and at `new_message` broadcast time using each user's current geohash
+- [ ] Online count + presence: gateway tracks `group:{groupId}` room size and emits `presence_update` events on join/leave; subtitle shows `· N ONLINE · <proximity-label> ·`
+
+### Home redesign — follow-ups
+
+Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is implemented on `feat/home-redesign`. Items below extend it incrementally without re-laying-out the screen.
+
+- [ ] **HOME-2** API: `GET /groups/me` (paginated; returns `id`, `name`, `anchorType`, `anchorLabel`, `memberCount`, `myRole`; include `lastMessage` summary + `unreadCount` + `lastReadAt` if scope allows). Unblocks the "Meus grupos" pinned section.
+- [ ] **HOME-3** Mobile: render the "Meus grupos" pinned section once HOME-2 ships. `MyGroupRow` component is intentionally **not** in place yet (deferred to this ticket); wire `useMyGroups` (React Query) + render above the discovery sections.
+- [ ] **HOME-4** Mobile: real `@react-navigation/bottom-tabs` navigator wrapping the home stack. Stub `InboxScreen`, `MapScreen`, `ProfileScreen` (each a centered "em breve" panel). Move logout from the header `more` action sheet to `ProfileScreen`.
+- [ ] **HOME-5** Mobile: live presence on home cards (depends on Chat redesign Slice B presence pipeline). Adds green dot + live count badge + "ATIVO AGORA" subtitle.
+- [ ] **HOME-6** API + mobile: distance string ("210M") on `NearbyGroup` (API returns meters; mobile formats `<n>M` / `<n>KM`). Replaces `proximityLabel` on cards.
+- [ ] **HOME-7** Mobile: "Ver todos →" detail screens — one per section (`GroupListByTypeScreen`) showing all groups of a single anchor type with infinite scroll.
+- [ ] **HOME-8** Mobile: search action in header (icon present today, no-op) → group-search screen.
+- [ ] **HOME-9** Mobile: location chip "◎ BAIRRO · CIDADE" in the header — depends on a reverse-geocoding source not yet wired.
+
 ### Phase 4 — DMs + Push Notifications
 
 - [ ] Resolve DP-02 (push notification provider)
@@ -193,7 +223,7 @@
 Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history + optimistic `sendMessage`). Remaining migrations, each in its own `refactor/rq-<slug>` branch:
 
 **HTTP cache — convert `useState + useEffect` fetch calls to `useQuery`**
-- [ ] `GroupDiscoveryScreen` → `useQuery(['groups', 'nearby', geohash], ...)`
+- [x] `GroupDiscoveryScreen` → `useQuery(['groups', 'nearby', "lat,lng"], ...)` — landed as `useNearbyGroups` in the Home redesign (the screen itself was renamed to `HomeScreen`)
 - [ ] `GroupDetailScreen` → `useQuery(['groups', 'detail', groupId], ...)`
 - [ ] `GroupMembersScreen` → `useInfiniteQuery(['groups', 'members', groupId], ...)`
 - [ ] `GroupDetailScreen` pending requests → `useQuery(['groups', 'requests', groupId], ...)` (replaces `useFocusEffect` manual refetch)
@@ -235,7 +265,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 | ~~TD-06~~ | ~~No 401 interceptor on `apiClient`~~ — **Fixed**: interceptor with refresh + retry queue + tests | Auth flow | ~~High~~ |
 | ~~TD-07~~ | ~~No unit tests exist for any use case~~ — **Fixed (Phase 1 scope)**: all Phase 1 use cases and mobile screens have unit coverage. Integration tests still pending under Testing track. | All modules | ~~Medium~~ |
 | TD-08 | `UpdateUserLocationUseCase` has no <300m no-op — every location update writes a new geohash even for tiny movements | User module | Low |
-| TD-09 | Mobile REST endpoints use ad-hoc `useState + useEffect` in every screen — no cache, no dedup, no optimistic updates. Decision: migrate to `@tanstack/react-query`. Phase 3 Slice 1 pilots it in `useGroupChat` (history + optimistic `sendMessage`); remaining surfaces to migrate listed under "RQ migration backlog" in Up next. | Phase 2 mobile | Medium |
+| TD-09 | Mobile REST endpoints use ad-hoc `useState + useEffect` in every screen — no cache, no dedup, no optimistic updates. Decision: migrate to `@tanstack/react-query`. Phase 3 Slice 1 piloted it in `useGroupChat`; Home redesign expanded with `useNearbyGroups` (`HomeScreen`). Remaining surfaces (GroupDetailScreen, GroupMembersScreen, CreateGroupScreen, the join/leave/ban/resolve mutations) listed under "RQ migration backlog" in Up next. | Phase 2 mobile | Medium |
 
 ---
 
