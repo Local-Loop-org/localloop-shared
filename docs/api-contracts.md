@@ -190,7 +190,7 @@ Response 200:
       "description": string | null,
       "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
       "anchorLabel": string,
-      "proximityLabel": "Mesmo local" | "Mesmo bairro" | "Região próxima" | "Na cidade",
+      "distanceMeters": number,
       "privacy": "open" | "approval_required",
       "memberCount": number
     }
@@ -198,7 +198,7 @@ Response 200:
 }
 
 Notes:
-  - proximityLabel is derived server-side from geohash prefix comparison. Coordinates never returned.
+  - distanceMeters is the haversine distance between the requesting user's lat/lng and the group's stored anchor_lat/anchor_lng. Raw group coordinates are never returned.
   - Returns groups whose anchorGeohash shares a prefix with the user's geohash or is a neighbor cell.
 ```
 
@@ -216,7 +216,7 @@ Request body:
   "description": string,   // optional, max 500 chars
   "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
   "anchorLabel": string,   // max 100 chars
-  "lat": number,           // converted to geohash server-side, not stored as-is
+  "lat": number,           // stored as anchor_lat and also derived to anchor_geohash server-side
   "lng": number,
   "privacy": "open" | "approval_required"
 }
