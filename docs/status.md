@@ -211,13 +211,12 @@ _Slice B — backend-touching pieces_
 Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is implemented on `feat/home-redesign`. Items below extend it incrementally without re-laying-out the screen.
 
 - [x] **HOME-2** API: `GET /groups/me` (paginated; returns `id`, `name`, `anchorType`, `anchorLabel`, `memberCount`, `myRole`; include `lastMessage` summary + `unreadCount` + `lastReadAt` if scope allows). Unblocks the "Meus grupos" pinned section.
-- [ ] **HOME-3** Mobile: render the "Meus grupos" pinned section once HOME-2 ships. `MyGroupRow` component is intentionally **not** in place yet (deferred to this ticket); wire `useMyGroups` (React Query) + render above the discovery sections.
-- [ ] **HOME-4** Mobile: real `@react-navigation/bottom-tabs` navigator wrapping the home stack. Stub `InboxScreen`, `MapScreen`, `ProfileScreen` (each a centered "em breve" panel). Move logout from the header `more` action sheet to `ProfileScreen`.
+- [x] **HOME-3** Mobile: render the "Meus grupos" pinned section once HOME-2 ships. `MyGroupRow` component is intentionally **not** in place yet (deferred to this ticket); wire `useMyGroups` (React Query) + render above the discovery sections.
+- [x] **HOME-4** Mobile: real `@react-navigation/bottom-tabs` navigator wrapping the home stack. Stub `InboxScreen`, `MapScreen`, `ProfileScreen` (each a centered "em breve" panel). Move logout from the header `more` action sheet to `ProfileScreen`.
 - [ ] **HOME-5** Mobile: live presence on home cards (depends on Chat redesign Slice B presence pipeline). Adds green dot + live count badge + "ATIVO AGORA" subtitle.
 - [ ] **HOME-6** API + mobile: distance string ("210M") on `NearbyGroup` (API returns meters; mobile formats `<n>M` / `<n>KM`). Replaces `proximityLabel` on cards.
 - [ ] **HOME-7** Mobile: "Ver todos →" detail screens — one per section (`GroupListByTypeScreen`) showing all groups of a single anchor type with infinite scroll. Also: add a "Ver todos" entry for "Meus grupos" using `useMyGroups(limit=50)` or `useInfiniteQuery`. Reuse or extract `MyGroupRow` from `HomeScreen/layout/MyGroupRow.tsx` — it has the right shape but may need additions (unread badge, swipe-to-leave) before extracting to a shared folder.
 - [ ] **HOME-8** Mobile: search action in header (icon present today, no-op) → group-search screen.
-- [ ] **HOME-9** Mobile: location chip "◎ BAIRRO · CIDADE" in the header — depends on a reverse-geocoding source not yet wired.
 
 ### Phase 4 — DMs + Push Notifications
 
