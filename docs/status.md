@@ -35,7 +35,7 @@
 - [x] Mobile: `auth.api.ts` migrated to shared `apiClient` (axios, env-based URL)
 - [x] Mobile: `apiClient` base URL from env var (`EXPO_PUBLIC_API_URL`)
 - [x] Backend: RefreshTokenUseCase + POST /auth/refresh (stateless JWT, validates user active)
-- [x] Jest path alias (@/*) configured — unblocks all future unit tests
+- [x] Jest path alias (@/\*) configured — unblocks all future unit tests
 - [x] CI: localloop-api — lint + unit tests + integration tests + Docker image build
 - [x] CI: localloop-mobile — lint + type-check + unit tests + EAS Build Android (iOS deferred)
 - [x] CI + publish: localloop-shared — lint + build + auto-publish to npm on push to main
@@ -71,28 +71,33 @@
 ### Phase 1 — Complete Foundation ✅
 
 **1. Cleanup** ✅
+
 - [x] Move Supabase URL + anon key to env vars (`EXPO_PUBLIC_*`)
 - [x] Unify HTTP layer: `auth.api.ts` migrated to shared `apiClient` (axios, env-based URL)
 - [x] 401 interceptor on `apiClient` — refresh + retry queue + test coverage
 
 **2. Backend — Phase 1 endpoints** ✅
+
 - [x] `RefreshTokenUseCase` + `POST /auth/refresh`
 - [x] UserModule: `GET /users/me`, `PATCH /users/me` (display name, dm_permission)
 - [x] `PATCH /users/me/location` (coordinate → geohash via geo-utils)
 - [x] `packages/geo-utils`: coordinate→geohash, 8 neighbor cells, proximity label generation (v1.1.0)
 
 **3. Mobile — Phase 1 wiring** ✅
+
 - [x] OnboardingScreen: call `PATCH /users/me` to persist display name to backend
 - [x] OnboardingScreen: call `PATCH /users/me/location` after granting permission
 - [x] Update `apiClient` base URL from hardcoded to env var
 
 **4. Infrastructure** ✅
+
 - [x] Add Redis service to `docker-compose.yml`
 - [x] Fix `JwtStrategy` fallback secret (TD-01) — throw error if `JWT_SECRET` not set
 
 ### Testing (parallel track — build as you implement)
 
 **API — unit tests (Jest)** ✅
+
 - [x] `ExchangeGoogleTokenUseCase` — 6 tests: new user, existing user, provider_id fallback, default displayName, supabase error, no user
 - [x] `ExchangeAppleTokenUseCase` — 7 tests mirroring the Google spec
 - [x] `RefreshTokenUseCase` — 5 tests: valid, expired, invalid, user not found, user inactive
@@ -101,6 +106,7 @@
 - [x] Phase 2 use cases — 46 tests across 9 specs: `CreateGroup`, `DiscoverNearbyGroups`, `GetGroupDetail`, `JoinGroup`, `ListJoinRequests`, `LeaveGroup`, `BanMember`, `ResolveJoinRequest`, `ListGroupMembers`
 
 **API — integration tests (Jest + Supertest + test DB)**
+
 - [ ] `POST /auth/google` — valid token, invalid token
 - [ ] `POST /auth/apple` — valid token, invalid token
 - [ ] `POST /auth/refresh` — valid, expired, invalid
@@ -109,6 +115,7 @@
 - [ ] `PATCH /users/me/location` — valid coords, verifies geohash stored (not coords)
 
 **Mobile — unit tests (Jest + React Native Testing Library)** ✅
+
 - [x] `useAuthStore`: setAuth, logout, initialize (3 paths), setNewUserStatus, updateUser — 9 tests
 - [x] `useAuthLogin`: Google/Apple success + error + cancel + no-session + loading — 8 tests
 - [x] `LoginScreen`: renders buttons, dispatches handlers, shows loader — 4 tests
@@ -118,6 +125,7 @@
 - [x] Phase 2 mobile — `useCurrentLocation` (4), `groups.api` (9), `CreateGroupScreen` (6), `GroupDiscoveryScreen` (7), `GroupMembersScreen` (9), `GroupDetailScreen` (17)
 
 **E2E (Maestro)**
+
 - [ ] Flow 1 — Google login → new user → onboarding → home
 - [ ] Flow 2 — App restart → session restored → goes directly to home
 - [ ] Flow 3 — Logout → goes to login screen
@@ -125,16 +133,19 @@
 ### CI/CD
 
 **API — GitHub Actions** ✅
+
 - [x] Workflow: `lint → unit tests → integration tests → docker build → Render deploy hook`
 - [x] Trigger: push to `main`, PRs targeting `main`
 - [x] Deploy: Render (free tier) triggered via deploy hook after CI passes
 
 **Mobile — GitHub Actions** ✅
+
 - [x] Workflow: `lint → type-check → unit tests → EAS Build (Android only)`
 - [x] Trigger: push to `main`, PRs targeting `main`
 - [x] iOS builds deferred until Apple Developer account is set up
 
 **Shared — GitHub Actions** ✅
+
 - [x] Workflow: `lint → build → npm publish` (auto-publish on push to main)
 
 ---
@@ -142,17 +153,20 @@
 ### Phase 2 — Groups
 
 **Vertical slice — create + discover + join** ✅
+
 - [x] Migration: `groups`, `group_members`, `group_join_requests` tables
 - [x] GroupsModule: `CreateGroupUseCase`, `DiscoverNearbyGroupsUseCase`, `GetGroupDetailUseCase`, `JoinGroupUseCase`, `ListJoinRequestsUseCase`
 - [x] Mobile: `CreateGroupScreen`, `GroupDiscoveryScreen`, `GroupDetailScreen`, `AuthenticatedStack`
 
 **Moderation slice — leave + approve/reject + ban + members listing** ✅
+
 - [x] `LeaveGroupUseCase` + `DELETE /groups/:id/members/me` (owner-can't-leave rule)
 - [x] `ResolveJoinRequestUseCase` (single use case handling approve/reject via `action` field) + `BanMemberUseCase`
 - [x] Endpoints: `PATCH /groups/:id/requests/:requestId`, `DELETE /groups/:id/members/:userId`, `GET /groups/:id/members` (paginated)
 - [x] Mobile: `GroupMembersScreen` + moderation UI (approve/reject/ban) wired in `GroupDetailScreen`
 
 **Phase 2 remaining**
+
 - [ ] Redis cache for `GET /groups/nearby` (TTL = 5min per geohash cell) — blocked on DP-01
 - [x] Unit tests for all Phase 2 use cases, mobile screens, hook, api module
 - [ ] Integration tests (Supertest + test DB) for Phase 2 endpoints
@@ -161,6 +175,7 @@
 ### Phase 3 — Chat
 
 **Slice 1 — Text chat** ✅
+
 - [x] Migration: `messages` table
 - [x] MessagesModule: `GetMessageHistoryUseCase`, `SendMessageUseCase`
 - [x] WebSocket gateway (Socket.IO) + Redis adapter for pub-sub
@@ -168,6 +183,7 @@
 - [x] Unit tests: use cases, gateway, hook, screen
 
 **Slice 2 — Media + remaining tests**
+
 - [ ] Media upload: presigned URL endpoint + Supabase Storage integration
 - [ ] Mobile: media picker + image/video rendering in `GroupChatScreen`
 - [ ] WebSocket integration tests (full ack/broadcast path against a running app + Redis)
@@ -175,7 +191,8 @@
 
 **Chat redesign — first pass of new wireframes** (split into two slices)
 
-*Slice A — frontend-only* ✅
+_Slice A — frontend-only_ ✅
+
 - [x] Custom header on `GroupChatScreen`: back button, anchor-type icon + group name + chevron (tap → `GroupDetailScreen`), members icon (tap → `GroupMembersScreen`)
 - [x] Day separators in the message list (`· HOJE ·`, `· ONTEM ·`, `· DD/MM ·` via `date-fns` + pt-BR locale)
 - [x] Bubble redesign: peer messages dark surface + line border + name above; own messages cyan→lavender gradient with asymmetric corners
@@ -184,7 +201,8 @@
 - [x] Hide proximity tag and online count in the header until Slice B lands — header rendered without them rather than stubbed
 - [x] Shared icon system at `src/shared/icons/` (custom `<Icon>` on `react-native-svg`, typed `IconName` union, `anchorIconName(AnchorType)` helper); replaces `@expo/vector-icons`
 
-*Slice B — backend-touching pieces*
+_Slice B — backend-touching pieces_
+
 - [ ] Per-message proximity label (`AQUI`, `120M`, etc.): extend message DTO with sender-relative-to-viewer proximity, computed at history fetch and at `new_message` broadcast time using each user's current geohash
 - [ ] Online count + presence: gateway tracks `group:{groupId}` room size and emits `presence_update` events on join/leave; subtitle shows `· N ONLINE · <proximity-label> ·`
 
@@ -192,12 +210,12 @@
 
 Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is implemented on `feat/home-redesign`. Items below extend it incrementally without re-laying-out the screen.
 
-- [ ] **HOME-2** API: `GET /groups/me` (paginated; returns `id`, `name`, `anchorType`, `anchorLabel`, `memberCount`, `myRole`; include `lastMessage` summary + `unreadCount` + `lastReadAt` if scope allows). Unblocks the "Meus grupos" pinned section.
+- [x] **HOME-2** API: `GET /groups/me` (paginated; returns `id`, `name`, `anchorType`, `anchorLabel`, `memberCount`, `myRole`; include `lastMessage` summary + `unreadCount` + `lastReadAt` if scope allows). Unblocks the "Meus grupos" pinned section.
 - [ ] **HOME-3** Mobile: render the "Meus grupos" pinned section once HOME-2 ships. `MyGroupRow` component is intentionally **not** in place yet (deferred to this ticket); wire `useMyGroups` (React Query) + render above the discovery sections.
 - [ ] **HOME-4** Mobile: real `@react-navigation/bottom-tabs` navigator wrapping the home stack. Stub `InboxScreen`, `MapScreen`, `ProfileScreen` (each a centered "em breve" panel). Move logout from the header `more` action sheet to `ProfileScreen`.
 - [ ] **HOME-5** Mobile: live presence on home cards (depends on Chat redesign Slice B presence pipeline). Adds green dot + live count badge + "ATIVO AGORA" subtitle.
 - [ ] **HOME-6** API + mobile: distance string ("210M") on `NearbyGroup` (API returns meters; mobile formats `<n>M` / `<n>KM`). Replaces `proximityLabel` on cards.
-- [ ] **HOME-7** Mobile: "Ver todos →" detail screens — one per section (`GroupListByTypeScreen`) showing all groups of a single anchor type with infinite scroll.
+- [ ] **HOME-7** Mobile: "Ver todos →" detail screens — one per section (`GroupListByTypeScreen`) showing all groups of a single anchor type with infinite scroll. Also: add a "Ver todos" entry for "Meus grupos" using `useMyGroups(limit=50)` or `useInfiniteQuery`. Reuse or extract `MyGroupRow` from `HomeScreen/layout/MyGroupRow.tsx` — it has the right shape but may need additions (unread badge, swipe-to-leave) before extracting to a shared folder.
 - [ ] **HOME-8** Mobile: search action in header (icon present today, no-op) → group-search screen.
 - [ ] **HOME-9** Mobile: location chip "◎ BAIRRO · CIDADE" in the header — depends on a reverse-geocoding source not yet wired.
 
@@ -223,6 +241,7 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history + optimistic `sendMessage`). Remaining migrations, each in its own `refactor/rq-<slug>` branch:
 
 **HTTP cache — convert `useState + useEffect` fetch calls to `useQuery`**
+
 - [x] `GroupDiscoveryScreen` → `useQuery(['groups', 'nearby', "lat,lng"], ...)` — landed as `useNearbyGroups` in the Home redesign (the screen itself was renamed to `HomeScreen`)
 - [ ] `GroupDetailScreen` → `useQuery(['groups', 'detail', groupId], ...)`
 - [ ] `GroupMembersScreen` → `useInfiniteQuery(['groups', 'members', groupId], ...)`
@@ -230,6 +249,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 - [ ] `GET /users/me` (currently only called inside auth flow) — wrap when a user-profile screen exists
 
 **Optimistic mutations — convert to `useMutation` with `onMutate` / rollback**
+
 - [ ] `joinGroup` — optimistic `myRole` flip (OPEN → member, APPROVAL_REQUIRED → local pending state)
 - [ ] `leaveGroup` — optimistic removal + navigate on success
 - [ ] `banMember` — optimistic removal from members list (already done manually — port to mutation)
