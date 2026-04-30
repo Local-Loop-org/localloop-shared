@@ -40,7 +40,9 @@
 | name | VARCHAR(80) | NOT NULL | Display name |
 | description | TEXT | nullable | |
 | anchor_type | anchor_type_enum | NOT NULL | Type of physical anchor |
-| anchor_geohash | CHAR(6) | NOT NULL | Anchor location (never returned to clients) |
+| anchor_lat | NUMERIC(9,6) | NOT NULL | Anchor latitude (used for distance computation; never returned to clients) |
+| anchor_lng | NUMERIC(9,6) | NOT NULL | Anchor longitude (used for distance computation; never returned to clients) |
+| anchor_geohash | CHAR(6) | NOT NULL | Anchor geohash for cell-based discovery (never returned to clients) |
 | anchor_label | VARCHAR(100) | NOT NULL | Human-readable location label |
 | privacy | group_privacy_enum | NOT NULL, DEFAULT `open` | Join policy |
 | owner_id | UUID | FK → users.id, NOT NULL | Creator |

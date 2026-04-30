@@ -44,3 +44,14 @@ export enum RequestStatus {
   APPROVED = 'approved',
   REJECTED = 'rejected',
 }
+
+export interface NearbyGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  anchorType: AnchorType;
+  anchorLabel: string;
+  distanceMeters: number;
+  privacy: GroupPrivacy;
+  memberCount: number;
+}
