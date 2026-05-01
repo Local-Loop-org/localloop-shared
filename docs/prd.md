@@ -65,10 +65,9 @@ LocalLoop é um aplicativo mobile de mensagens baseado em proximidade geográfic
 ### Privacidade Geográfica
 - O servidor **nunca** retorna `lat/lng` de usuários
 - O geohash do usuário **nunca** é exposto na API pública
-- Labels qualitativos são gerados server-side:
-  - `"Mesmo bairro"` → prefixos do geohash são iguais
-  - `"Região próxima"` → célula vizinha
-  - `"Na cidade"` → mesma cidade
+- A distância exata em metros é calculada server-side (haversine entre as
+  coordenadas do usuário e do grupo) e formatada no cliente como `<n>M` /
+  `<n>Km`. As coordenadas brutas do grupo nunca são retornadas.
 
 ### Controle de DMs
 ```
