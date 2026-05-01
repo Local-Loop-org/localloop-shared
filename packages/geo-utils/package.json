@@ -1,7 +1,7 @@
 {
   "name": "@localloop/geo-utils",
-  "version": "1.2.0",
-  "description": "Geohash helpers for LocalLoop — coordinate conversion, neighbor cells, proximity labels",
+  "version": "2.0.0",
+  "description": "Geohash helpers for LocalLoop — coordinate conversion, neighbor cells, haversine distance",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],

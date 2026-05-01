@@ -1,5 +1,11 @@
 # ADR-005: Geohash precision 6 as the spatial unit
 
+> **Partially superseded (2026-04-30)**: HOME-6 replaced the proximity-label
+> outcome with precise haversine `distanceMeters`. Groups now also store
+> `anchor_lat` / `anchor_lng` alongside the geohash. Geohash precision 6 is
+> still the spatial unit for the `findNearby` cell lookup; the proximity-label
+> generation described below is retired.
+
 ## Status
 Accepted
 
