@@ -41,7 +41,7 @@
 - [x] Backend: RefreshTokenUseCase + POST /auth/refresh (stateless JWT, validates user active)
 - [x] Jest path alias (@/\*) configured — unblocks all future unit tests
 - [x] CI: localloop-api — lint + unit tests + integration tests + Docker image build
-- [x] CI: localloop-mobile — lint + type-check + unit tests + EAS Build Android (iOS deferred)
+- [x] CI: localloop-mobile — lint + type-check + unit tests + EAS Build Android APK + GitHub Release publish (iOS deferred)
 - [x] CI + publish: localloop-shared — lint + build + auto-publish to npm on push to main
 - [x] CD: API deployed to Render (free tier) + Neon Postgres (free tier, PostGIS enabled)
 - [x] CD: GitHub Actions triggers Render deploy hook after CI passes
@@ -147,8 +147,9 @@
 
 **Mobile — GitHub Actions** ✅
 
-- [x] Workflow: `lint → type-check → unit tests → EAS Build (Android only)`
-- [x] Trigger: push to `main`, PRs targeting `main`
+- [x] Workflow: `lint → type-check → unit tests → EAS Build APK → GitHub Release` (Android only)
+- [x] Trigger: push to `main`, PRs targeting `main` (release step gated to push-on-main)
+- [x] Delivery: APK attached to a GitHub Release tagged `build-<run_number>` — sideload from the Releases page on the device
 - [x] iOS builds deferred until Apple Developer account is set up
 
 **Shared — GitHub Actions** ✅
