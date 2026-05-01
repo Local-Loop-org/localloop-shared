@@ -154,7 +154,8 @@ Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicate
 
 - User `lat/lng` is **never stored** — only `geohash` (precision 6, ~1.2km²).
 - `geohash` is **never returned** in any API response.
-- Proximity labels are generated server-side from geohash prefix comparison.
+- Group anchor `lat/lng` is stored (`anchor_lat` / `anchor_lng NUMERIC(9,6)`) but **never returned** to clients. Only the haversine `distanceMeters` between the requesting user and the anchor is exposed.
+- **No user-to-user distance is ever computed or returned.** Distance is only meaningful from a user to a group anchor (a public point). Per-message proximity badges and similar features are explicitly out of scope to prevent triangulation attacks.
 
 ### Real-time (chat — Phase 3)
 

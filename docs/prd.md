@@ -68,6 +68,10 @@ LocalLoop é um aplicativo mobile de mensagens baseado em proximidade geográfic
 - A distância exata em metros é calculada server-side (haversine entre as
   coordenadas do usuário e do grupo) e formatada no cliente como `<n>M` /
   `<n>Km`. As coordenadas brutas do grupo nunca são retornadas.
+- **Distância usuário-a-usuário nunca é calculada nem exposta.** A distância só
+  faz sentido em relação ao âncora do grupo (um ponto público). Recursos como
+  "distância do remetente da mensagem" estão explicitamente fora de escopo
+  para evitar triangulação de posição.
 
 ### Controle de DMs
 ```

@@ -204,8 +204,7 @@ _Slice A — frontend-only_ ✅
 
 _Slice B — backend-touching pieces_
 
-- [ ] Per-message proximity label (`AQUI`, `120M`, etc.): extend message DTO with sender-relative-to-viewer proximity, computed at history fetch and at `new_message` broadcast time using each user's current geohash
-- [ ] Online count + presence: gateway tracks `group:{groupId}` room size and emits `presence_update` events on join/leave; subtitle shows `· N ONLINE · <proximity-label> ·`
+- [ ] Online count + presence: gateway tracks `group:{groupId}` room size and emits `presence_update` events on join/leave; subtitle shows `· N ONLINE ·`
 
 ### Home redesign — follow-ups
 
