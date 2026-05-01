@@ -428,7 +428,7 @@ Errors:
 
 ---
 
-## WebSocket Events [PLANNED — Phase 3]
+## WebSocket Events
 
 **Connection:** `wss://<host>/chat`
 **Auth:** pass JWT in handshake query: `?token=<accessToken>`
@@ -480,6 +480,11 @@ trigger: moderator soft-deletes a message
 event: member_joined
 payload: { "groupId": string, "userId": string, "displayName": string }
 trigger: a user joins an open group
+
+event: presence_update
+payload: { "groupId": string, "count": number }
+trigger: any socket joins/leaves the group room or disconnects
+caveat: same user on multiple devices is counted multiple times in v1
 
 event: error
 payload: { "code": string, "message": string }

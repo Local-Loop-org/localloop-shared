@@ -55,3 +55,8 @@ export interface NearbyGroup {
   privacy: GroupPrivacy;
   memberCount: number;
 }
+
+export interface PresenceUpdate {
+  groupId: string;
+  count: number;
+}
