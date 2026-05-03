@@ -60,3 +60,12 @@ export interface PresenceUpdate {
   groupId: string;
   count: number;
 }
+
+export interface UserSummary {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  dmPermission: DmPermission;
+  provider: Provider;
+  createdAt: string;
+}
