@@ -1,6 +1,6 @@
 # LocalLoop
 
-A privacy-first, hyper-local groups and chat app — find people anchored to a place (a coffee shop, a neighborhood, a building, an event), not to each other.
+A proximity based groups and chat app — find people anchored to a place (a coffee shop, a neighborhood, a building, an event).
 
 [![shared-types on npm](https://img.shields.io/npm/v/@localloop/shared-types?label=%40localloop%2Fshared-types)](https://www.npmjs.com/package/@localloop/shared-types)
 [![geo-utils on npm](https://img.shields.io/npm/v/@localloop/geo-utils?label=%40localloop%2Fgeo-utils)](https://www.npmjs.com/package/@localloop/geo-utils)
@@ -116,8 +116,6 @@ Three independent CI/CD pipelines, each gated on lint and tests:
 | `localloop-api` | lint → unit + e2e tests (against real PostGIS + Redis service containers) → Docker image build → Render deploy webhook | API live on Render (Neon Postgres + Upstash Redis in prod) |
 | `localloop-mobile` | type-check → unit tests → EAS Build (Android, profile `production`) → GitHub Release `build-<run_number>` with the `.apk` attached | Sideloadable APK from the repo's Releases page |
 | `localloop-shared` | lint (type-check) → build → conditional `npm publish` per package | Versioned packages on npm |
-
-No manual deploys. iOS builds for the mobile client are deferred until an Apple Developer account is in place.
 
 ## Highlights
 
