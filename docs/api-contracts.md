@@ -192,7 +192,9 @@ Response 200:
       "anchorLabel": string,
       "distanceMeters": number,
       "privacy": "open" | "approval_required",
-      "memberCount": number
+      "memberCount": number,
+      "myRole": "owner" | "moderator" | "member" | null,
+      "memberStatus": "active" | "pending" | null
     }
   ]
 }
@@ -200,6 +202,9 @@ Response 200:
 Notes:
   - distanceMeters is the haversine distance between the requesting user's lat/lng and the group's stored anchor_lat/anchor_lng. Raw group coordinates are never returned.
   - Returns groups whose anchorGeohash shares a prefix with the user's geohash or is a neighbor cell.
+  - Groups where the caller's group_members.status = 'banned' are excluded from the response entirely.
+  - myRole reflects the caller's role only when memberStatus = 'active'; PENDING and non-members both receive null.
+  - memberStatus is 'active' | 'pending' | null — 'banned' is never returned (see filter note above).
 ```
 
 ---
