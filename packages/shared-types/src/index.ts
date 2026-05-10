@@ -54,6 +54,10 @@ export interface NearbyGroup {
   distanceMeters: number;
   privacy: GroupPrivacy;
   memberCount: number;
+  /** null unless the caller is an ACTIVE member of this group */
+  myRole: MemberRole | null;
+  /** null when the caller has no row in group_members; banned groups are never returned */
+  memberStatus: MemberStatus | null;
 }
 
 export interface PresenceUpdate {
