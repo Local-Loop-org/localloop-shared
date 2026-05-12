@@ -474,6 +474,15 @@ payload: { "groupId": string }
 event: leave_group
 payload: { "groupId": string }
 
+event: watch_presence
+payload: { "groupIds": string[] }  // max 50 unique group ids
+notes: subscribes to read-only presence updates without joining counted chat rooms.
+       Open groups are watchable by any authenticated user; approval-required
+       groups are watchable only by active members.
+
+event: unwatch_presence
+payload: { "groupIds": string[] }
+
 event: send_message
 payload:
 {
@@ -515,7 +524,8 @@ trigger: a user joins an open group
 
 event: presence_update
 payload: { "groupId": string, "count": number }
-trigger: any socket joins/leaves the group room or disconnects
+trigger: any counted chat socket joins/leaves the group room or disconnects;
+         also emitted immediately after a socket starts watching that group
 caveat: same user on multiple devices is counted multiple times in v1
 
 event: error
