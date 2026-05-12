@@ -257,12 +257,39 @@ Response 200:
   "anchorType": string,
   "anchorLabel": string,
   "privacy": string,
+  "radiusKm": number,
   "memberCount": number,
-  "myRole": "owner" | "moderator" | "member" | null  // null = not a member
+  "myRole": "owner" | "moderator" | "member" | null,  // null = not a member
+  "createdAt": string  // ISO-8601
 }
 
 Errors:
   404 GROUP_NOT_FOUND
+```
+
+---
+
+### Update group (owner or moderator)
+
+```
+PATCH /groups/:id
+Auth: required, owner or moderator
+
+Request body (all fields optional):
+{
+  "name": string,        // 1–80 chars
+  "description": string | null,  // max 500 chars
+  "anchorLabel": string, // 1–100 chars
+  "privacy": "open" | "approval_required",
+  "radiusKm": number     // RADIUS_KM_MIN–RADIUS_KM_MAX
+}
+
+Response 200: (same shape as GET /groups/:id)
+
+Errors:
+  403 NOT_PRIVILEGED — caller is not owner or moderator
+  404 GROUP_NOT_FOUND
+  422 VALIDATION_ERROR
 ```
 
 ---
