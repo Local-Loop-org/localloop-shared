@@ -241,6 +241,39 @@ Notes:
 
 ---
 
+### Group message push fan-out
+
+```
+Trigger: successful send_message event on /chat
+Provider: expo
+
+Recipients:
+  - enabled push_devices rows for active group members
+  - users.push_permission_status = 'granted'
+  - excludes the sender
+  - excludes users currently connected to group:{groupId}
+
+Notification:
+{
+  "title": "<group name>",
+  "body": "<senderName>: <message preview>",
+  "data": {
+    "type": "group_message",
+    "groupId": string,
+    "messageId": string,
+    "senderId": string
+  }
+}
+
+Notes:
+  - best-effort delivery; provider errors do not fail WebSocket message delivery.
+  - preview collapses whitespace, is capped at 120 chars, and uses "..." when truncated.
+  - immediate DeviceNotRegistered ticket errors disable the matching token.
+  - tapping the notification is mobile-owned and does not deep-link to chat yet.
+```
+
+---
+
 ## Groups [PLANNED — Phase 2]
 
 ### Discover nearby groups
@@ -584,7 +617,8 @@ payload:
   "mediaType": string | null,
   "createdAt": string
 }
-trigger: a member of the group sends a message
+trigger: a member of the group sends a message.
+side effect: eligible offline group members may receive a best-effort push notification.
 
 event: message_deleted
 payload: { "messageId": string, "groupId": string }
