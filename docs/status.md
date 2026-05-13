@@ -7,9 +7,11 @@
 
 ## Current phase
 
-**HOME-5 live presence on Home implemented as of 2026-05-12.** API `/chat` now supports read-only `watch_presence` / `unwatch_presence` observer rooms so Home can display chat-viewer counts without joining counted chat rooms. Open groups expose counts to authenticated users; approval-required groups expose counts only to active members. Mobile adds `useGroupPresence` and renders a green dot on "Meus grupos", a compact count badge on horizontal discovery cards, and `N Online` on vertical rows. Next unblocked items: HOME-8 (search), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 (message permissions), GroupMembersScreen RQ migration.
+**HOME-5 live presence on Home implemented as of 2026-05-12; roadmap adjusted on 2026-05-13.** API `/chat` now supports read-only `watch_presence` / `unwatch_presence` observer rooms so Home can display chat-viewer counts without joining counted chat rooms. Open groups expose counts to authenticated users; approval-required groups expose counts only to active members. Mobile adds `useGroupPresence` and renders a green dot on "Meus grupos", a compact count badge on horizontal discovery cards, and `N Online` on vertical rows. Next unblocked items: HOME-11 (My Groups unread + fresh last message), GroupMembersScreen redesign + unban, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 (message permissions). HOME-8 search is deferred to Phase 5 Polish; hide the no-op Home search button on the next mobile change that touches Home.
 
 ## Last updated
+
+2026-05-13 — Roadmap adjusted for the next Home/group-management passes. HOME-8 search is now Phase 5 Polish instead of a current blocker; next mobile work touching Home should hide the no-op search button until search is built. Added HOME-11: unread count + socket-fresh last message for `MyGroupRow`, shared between Home and `MyGroupsScreen`. Added GroupMembersScreen redesign + unban: active members, join requests for approval-required groups, and banned users as separate sections. Added HOME-12: real Map screen roadmap item. Added mobile polish item to use a members icon instead of the literal `MEM` shorthand.
 
 2026-05-12 — HOME-5 live presence on Home implemented across API + mobile + shared docs on `feat/home-5-presence`. **API**: `/chat` adds `watch_presence` / `unwatch_presence`; observer sockets join `presence:{groupId}` rooms, while only chat sockets in `group:{groupId}` are counted. `emitPresence` broadcasts the same `presence_update` to both room types. Authorization: open groups are watchable by authenticated users; approval-required groups are watchable only by ACTIVE members; missing/inactive/banned/closed non-member groups are suppressed. **Mobile**: new `useGroupPresence(groupIds)` hook opens a read-only socket subscription; `HomeScreen` watches visible eligible nearby groups plus "Meus grupos" and merges live counts into presentational props. UI renders green dot on my-groups rows, compact live count pill on horizontal discovery cards, and green `N Online` suffix on vertical discovery rows. **Docs**: `api-contracts.md` documents the new WebSocket events. Verification: API 147/147 tests + build; mobile 221/221 tests + `tsc --noEmit`; shared lint clean.
 
@@ -88,7 +90,7 @@
 
 ## In progress
 
-Nothing in progress. Pick next from "Up next": HOME-8 (search), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 (message permissions), or `GroupMembersScreen` RQ migration (TD-09 remaining).
+Nothing in progress. Pick next from "Up next": HOME-11 (My Groups unread + fresh last message), GroupMembersScreen redesign + unban, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, or Phase 3 Slice 3 (message permissions). HOME-8 search is deferred to Phase 5 Polish.
 
 ---
 
@@ -195,6 +197,7 @@ Nothing in progress. Pick next from "Up next": HOME-8 (search), Phase 3 Slice 2 
 **Phase 2 remaining**
 
 - [ ] Redis cache for `GET /groups/nearby` (TTL = 5min per geohash cell) — unblocked (DP-01 resolved → Upstash)
+- [ ] GroupMembersScreen redesign + unban: API exposes banned users and an unban mutation as needed; mobile redesigns `GroupMembersScreen` into three sections — active members, join requests (only for approval-required groups), and banned users — with React Query-backed pagination/mutations.
 - [x] `DeleteGroupUseCase` + `DELETE /groups/:id` (owner-only; cascades members, requests, messages). Mobile UI (owner action sheet + optimistic removal) deferred to separate mobile branch.
 - [x] Unit tests for all Phase 2 use cases, mobile screens, hook, api module
 - [ ] Integration tests (Supertest + test DB) for Phase 2 endpoints
@@ -252,9 +255,11 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 - [x] **HOME-5** API + mobile: live presence on Home cards/rows. API `/chat` has read-only `watch_presence` / `unwatch_presence` observer rooms; Home observes counts without inflating them. Mobile shows a green dot on "Meus grupos", a compact live count badge on horizontal cards, and `N Online` on vertical rows.
 - [x] **HOME-6** API + mobile: distance string ("210M") on `NearbyGroup` (API returns meters; mobile formats `<n>M` / `<n>Km`). Replaces `proximityLabel` on cards. — _Done (`feat/home-6-distance-meters`)._
 - [x] **HOME-7** Mobile: "Ver todos →" detail screens — one per section (`GroupListByTypeScreen`) showing all groups of a single anchor type with infinite scroll. Also: add a "Ver todos" entry for "Meus grupos" using `useMyGroups(limit=50)` or `useInfiniteQuery`. Reuse or extract `MyGroupRow` from `HomeScreen/layout/MyGroupRow.tsx` — it has the right shape but may need additions (unread badge, swipe-to-leave) before extracting to a shared folder.
-- [ ] **HOME-8** Mobile: search action in header (icon present today, no-op) → group-search screen.
+- [ ] **HOME-8** Mobile: deferred to Phase 5 Polish (search icon should be hidden on the next Home mobile touch until the group-search screen is built).
 - [x] **HOME-9** API + mobile: full membership status on discovery cards. — _Done (`feat/home-9-membership-status`)._
 - [x] **HOME-10** API + mobile: configurable discovery radius with mobile UI. — _Done (`feat/home-10-radius` + `feat/home-10-mobile-radius`)._
+- [ ] **HOME-11** API + mobile: My Groups freshness. Ensure `GET /groups/me` supplies `unreadCount`, `lastReadAt`, and `lastMessage`; extract/reuse one `MyGroupRow` for Home and `MyGroupsScreen`; render unread badges; extend Socket.IO with a lightweight group-summary event so new messages refresh the last-message preview without waiting for a refetch.
+- [ ] **HOME-12** Mobile: real `MapScreen` replacing the current placeholder. Show nearby groups on a map using the existing location/radius model, with pins/clusters that open the same group chat/detail flow as Home.
 
 ### Phase 4 — DMs + Push Notifications
 
@@ -267,6 +272,8 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 
 ### Phase 5 — Polish
 
+- [ ] **HOME-8** Search polish: build the group-search screen and restore the Home search action; until then, remove/hide the current no-op search button on the next mobile branch that touches Home.
+- [ ] Mobile polish: use the shared members icon instead of the literal `MEM` shorthand wherever the UI refers to group members.
 - [ ] Moderation: soft-delete messages, ban flow
 - [ ] Rate limiting (NestJS ThrottlerModule)
 - [ ] LGPD: `DELETE /users/me` (account deletion, data erasure)
@@ -282,7 +289,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 
 - [x] `GroupDiscoveryScreen` → `useQuery(['groups', 'nearby', "lat,lng"], ...)` — landed as `useNearbyGroups` in the Home redesign (the screen itself was renamed to `HomeScreen`)
 - [x] `GroupDetailScreen` → `useGroupDetail` (`useQuery`), `useGroupJoinRequests` (`useQuery`, privileged-gated), `useGroupMembers` (`useQuery`, limit 5) — all optimistic mutations too (join/leave/delete/ban/resolve/update)
-- [ ] `GroupMembersScreen` → `useInfiniteQuery(['groups', 'members', groupId], ...)`
+- [ ] `GroupMembersScreen` → redesign + React Query: active members via `useInfiniteQuery(['groups', 'members', groupId, 'active'], ...)`, banned users via a matching query/API shape, join requests via `useGroupJoinRequests` for approval-required groups only, plus unban mutation.
 - [x] `GroupDetailScreen` pending requests → `useGroupJoinRequests` (`useQuery`, replaces `useFocusEffect` manual refetch)
 - [ ] `GET /users/me` (currently only called inside auth flow) — wrap when a user-profile screen exists
 
@@ -291,6 +298,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 - [ ] `joinGroup` — optimistic `myRole` flip (OPEN → member, APPROVAL_REQUIRED → local pending state)
 - [ ] `leaveGroup` — optimistic removal + navigate on success
 - [ ] `banMember` — optimistic removal from members list (already done manually — port to mutation)
+- [ ] `unbanMember` — optimistic removal from banned list + optional restore path if the API returns the active member shape
 - [ ] `resolveJoinRequest` — optimistic removal from pending list + `memberCount` bump on approve (already done manually — port to mutation)
 - [ ] `updateUserProfile` (PATCH /users/me) — optimistic update of `useAuthStore` user; rollback on failure
 
@@ -324,7 +332,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 | ~~TD-07~~ | ~~No unit tests exist for any use case~~ — **Fixed (Phase 1 scope)**: all Phase 1 use cases and mobile screens have unit coverage. Integration tests still pending under Testing track. | All modules | ~~Medium~~ |
 | ~~TD-08~~ | ~~`UpdateUserLocationUseCase` has no <300m no-op~~ — **Closed**: `updateLocation` is now called only once (onboarding); no repeated writes to deduplicate. Location freshness strategy moved to Phase 3 Slice 3. | ~~User module~~ | ~~Low~~ |
 | TD-11 | API spec files duplicate repository mock builders — `buildGroupRepoMock` extracted to `src/modules/groups/test/group-repo.mock.ts` (done). Remaining: `IUserRepository` mock repeated across 7 specs in auth/user/messages modules → `src/modules/auth/test/user-repo.mock.ts`; `IMessageRepository` mock repeated across 3 messages specs → `src/modules/messages/test/message-repo.mock.ts`. | Test maintenance | Low |
-| TD-09 | Mobile REST endpoints use ad-hoc `useState + useEffect` in every screen — no cache, no dedup, no optimistic updates. Decision: migrate to `@tanstack/react-query`. Phase 3 Slice 1 piloted it in `useGroupChat`; Home redesign expanded with `useNearbyGroups` (`HomeScreen`). Remaining surfaces (GroupDetailScreen, GroupMembersScreen, CreateGroupScreen, the join/leave/ban/resolve mutations) listed under "RQ migration backlog" in Up next. | Phase 2 mobile | Medium |
+| TD-09 | Mobile REST endpoints use ad-hoc `useState + useEffect` in every screen — no cache, no dedup, no optimistic updates. Decision: migrate to `@tanstack/react-query`. Phase 3 Slice 1 piloted it in `useGroupChat`; Home redesign expanded with `useNearbyGroups` (`HomeScreen`), and GroupDetailScreen is now migrated. Remaining surfaces (GroupMembersScreen redesign, CreateGroupScreen, profile fetch, and any leftover join/leave/ban/resolve/unban mutations) are listed under "RQ migration backlog" in Up next. | Phase 2 mobile | Medium |
 | ~~TD-10~~ | ~~Auth response under-specifies the User shape~~ — **Fixed (`feat/td-10-auth-user-shape`)**: `@localloop/shared-types@1.3.0` exports `UserSummary`; backend `UserSummaryDto` and `UserProfileDto` both `implements UserSummary` (auth response now carries `dmPermission` + `createdAt`); mobile `User` interface re-exports `UserSummary` (drops the 4 dead fields `providerId`/`geohash`/`isActive`/`lastSeenAt`) and `auth.api.ts:mapToAuthResponse` is a direct pass-through. | Auth flow | ~~Medium~~ |
 
 ---
