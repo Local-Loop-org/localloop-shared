@@ -29,7 +29,7 @@
 ```
 Query param: `?before=<cursor>&limit=<n>` (max limit defined per endpoint)
 
-**Privacy rule:** coordinates (`lat`/`lng`) and `geohash` are **never** present in any response.
+**Privacy rule:** user exact coordinates (`lat`/`lng`) and user `geohash` are **never** present in any response. Group anchor coordinates are public group metadata and may be returned where the UI needs group location, distance, or map placement.
 
 ---
 
@@ -200,7 +200,7 @@ Response 200:
 }
 
 Notes:
-  - distanceMeters is the haversine distance between the requesting user's lat/lng and the group's stored anchor_lat/anchor_lng. Raw group coordinates are never returned.
+  - distanceMeters is the haversine distance between the requesting user's lat/lng and the group's stored anchor_lat/anchor_lng. This endpoint returns distance, not raw group coordinates.
   - Returns groups whose anchorGeohash shares a prefix with the user's geohash or is a neighbor cell.
   - Groups where the caller's group_members.status = 'banned' are excluded from the response entirely.
   - myRole reflects the caller's role only when memberStatus = 'active'; PENDING and non-members both receive null.
@@ -255,6 +255,8 @@ Response 200:
   "name": string,
   "description": string | null,
   "anchorType": string,
+  "anchorLat": number,
+  "anchorLng": number,
   "anchorLabel": string,
   "privacy": string,
   "radiusKm": number,

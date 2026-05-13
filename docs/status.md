@@ -11,6 +11,8 @@
 
 ## Last updated
 
+2026-05-13 — Group Detail distance card implemented on `feat/group-detail-distance-card` (API + mobile). API `GroupDetailDto` now includes public `anchorLat` / `anchorLng` on both `GET /groups/:id` and `PATCH /groups/:id`. Mobile adds `@localloop/geo-utils`, keeps the user's current device coords local, computes user-to-group distance on `GroupDetailScreen`, and renders a `DISTÂNCIA` stat card on the second "SOBRE O GRUPO" row next to the anchor-label card.
+
 2026-05-13 — Location privacy rule clarified in `architecture.md`: user exact `lat/lng` remains private and is never returned to other users, but group anchor coordinates are public group metadata. Future Group Detail distance work should expose group anchor coordinates from the group detail API and compute the user's current distance locally on mobile using the existing `distanceMeters` helper + device coords.
 
 2026-05-13 — Roadmap adjusted for the next Home/group-management passes. HOME-8 search is now Phase 5 Polish instead of a current blocker; next mobile work touching Home should hide the no-op search button until search is built. Added HOME-11: unread count + socket-fresh last message for `MyGroupRow`, shared between Home and `MyGroupsScreen`. Added GroupMembersScreen redesign + unban: active members, join requests for approval-required groups, and banned users as separate sections. Added HOME-12: real Map screen roadmap item. Added mobile polish item to use a members icon instead of the literal `MEM` shorthand.
