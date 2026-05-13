@@ -7,9 +7,11 @@
 
 ## Current phase
 
-**HOME-5 live presence on Home implemented as of 2026-05-12; roadmap adjusted on 2026-05-13.** API `/chat` now supports read-only `watch_presence` / `unwatch_presence` observer rooms so Home can display chat-viewer counts without joining counted chat rooms. Open groups expose counts to authenticated users; approval-required groups expose counts only to active members. Mobile adds `useGroupPresence` and renders a green dot on "Meus grupos", a compact count badge on horizontal discovery cards, and `N Online` on vertical rows. Next unblocked items: HOME-11 (My Groups unread + fresh last message), GroupMembersScreen redesign + unban, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 (message permissions). HOME-8 search is deferred to Phase 5 Polish; hide the no-op Home search button on the next mobile change that touches Home.
+**Phase 4 push notification initial setup in progress on `feat/push-notifications-setup`.** DP-02 is resolved: use Expo Push first behind provider-neutral contracts so Firebase FCM can be added later. This slice adds shared push enums, API push-device registration/preferences, and mobile permission/token registration; message notification fan-out is intentionally deferred to the next slice. Other unblocked items remain: HOME-11, GroupMembersScreen redesign + unban, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is now hidden until the real search screen ships.
 
 ## Last updated
+
+2026-05-13 — Phase 4 push notification initial setup implemented on `feat/push-notifications-setup` (shared + API + mobile). **Shared**: `@localloop/shared-types@1.5.0` adds `PushProvider`, `PushPermissionStatus`, `DevicePlatform`, and extends `UserSummary.pushPermissionStatus`. **API**: migration `1716000000000-AddPushNotifications` adds `users.push_permission_status` + `push_devices`; new `NotificationsModule` exposes `PUT /users/me/push-devices/current`, `DELETE /users/me/push-devices/current`, and `PATCH /users/me/push-permission`; Expo Push is implemented behind `IPushNotificationProvider` but not yet called by chat. **Mobile**: adds `expo-notifications` / `expo-constants`, stores a stable installation ID, bootstraps permission once from Home when status is `null`, moves later changes to the Profile notification toggle, and hides the no-op Home search icon. Message notification fan-out is next.
 
 2026-05-13 — Location privacy rule clarified in `architecture.md`: user exact `lat/lng` remains private and is never returned to other users, but group anchor coordinates are public group metadata. Future Group Detail distance work should expose group anchor coordinates from the group detail API and compute the user's current distance locally on mobile using the existing `distanceMeters` helper + device coords.
 
@@ -257,7 +259,7 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 - [x] **HOME-5** API + mobile: live presence on Home cards/rows. API `/chat` has read-only `watch_presence` / `unwatch_presence` observer rooms; Home observes counts without inflating them. Mobile shows a green dot on "Meus grupos", a compact live count badge on horizontal cards, and `N Online` on vertical rows.
 - [x] **HOME-6** API + mobile: distance string ("210M") on `NearbyGroup` (API returns meters; mobile formats `<n>M` / `<n>Km`). Replaces `proximityLabel` on cards. — _Done (`feat/home-6-distance-meters`)._
 - [x] **HOME-7** Mobile: "Ver todos →" detail screens — one per section (`GroupListByTypeScreen`) showing all groups of a single anchor type with infinite scroll. Also: add a "Ver todos" entry for "Meus grupos" using `useMyGroups(limit=50)` or `useInfiniteQuery`. Reuse or extract `MyGroupRow` from `HomeScreen/layout/MyGroupRow.tsx` — it has the right shape but may need additions (unread badge, swipe-to-leave) before extracting to a shared folder.
-- [ ] **HOME-8** Mobile: deferred to Phase 5 Polish (search icon should be hidden on the next Home mobile touch until the group-search screen is built).
+- [ ] **HOME-8** Mobile: deferred to Phase 5 Polish; the no-op search icon is hidden, and the real group-search screen still needs to be built.
 - [x] **HOME-9** API + mobile: full membership status on discovery cards. — _Done (`feat/home-9-membership-status`)._
 - [x] **HOME-10** API + mobile: configurable discovery radius with mobile UI. — _Done (`feat/home-10-radius` + `feat/home-10-mobile-radius`)._
 - [ ] **HOME-11** API + mobile: My Groups freshness. Ensure `GET /groups/me` supplies `unreadCount`, `lastReadAt`, and `lastMessage`; extract/reuse one `MyGroupRow` for Home and `MyGroupsScreen`; render unread badges; extend Socket.IO with a lightweight group-summary event so new messages refresh the last-message preview without waiting for a refetch.
@@ -265,11 +267,13 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 
 ### Phase 4 — DMs + Push Notifications
 
-- [ ] Resolve DP-02 (push notification provider)
+- [x] Resolve DP-02: Expo Push first behind a provider-neutral API/mobile boundary, with future FCM adapter support.
+- [x] Push notification initial setup: shared contracts, `push_devices`, user permission status, API registration/preference endpoints, and provider port + Expo adapter.
+- [x] Mobile push registration handling: Home asks once when `pushPermissionStatus = null`; Profile toggle owns later enable/disable changes.
 - [ ] Migration: `direct_messages` table
 - [ ] DMModule: `SendDirectMessageUseCase` (enforces `dm_permission` rules)
-- [ ] Push notification service
-- [ ] Mobile: DM screen, push notification handling
+- [ ] Push notification fan-out for new messages
+- [ ] Mobile: DM screen
 - [ ] Maestro E2E: DM flow with each `dm_permission` level
 
 ### Phase 5 — Polish
@@ -317,7 +321,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 | ID | Decision | Blocks |
 |----|----------|--------|
 | ~~DP-01~~ | ~~Redis hosting for production (self-hosted vs Upstash)~~ — **Resolved 2026-05-01**: Upstash chosen | ~~Phase 2 cache, Phase 3 WebSocket pub-sub~~ |
-| DP-02 | Push notification provider (Expo Push vs Firebase FCM) | Phase 4 |
+| ~~DP-02~~ | ~~Push notification provider (Expo Push vs Firebase FCM)~~ — **Resolved 2026-05-13**: Expo Push first behind provider-neutral contracts; FCM can be added as a later adapter. | ~~Phase 4~~ |
 
 ---
 

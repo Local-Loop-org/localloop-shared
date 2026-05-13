@@ -17,6 +17,7 @@
 | Storage | Supabase Storage | 2.x | ADR-004 |
 | Cache / Pub-Sub | Redis | 7.x | — |
 | Real-time | Socket.IO + Redis Adapter | 4.x | — |
+| Push notifications | Expo Push first, provider port for future FCM | — | — |
 | Location encoding | ngeohash | 0.6.x | ADR-005 |
 | Shared packages toolchain | npm publish (`@localloop/*`) | — | — |
 
@@ -162,6 +163,13 @@ Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicate
 
 - Socket.IO with `@socket.io/redis-adapter` for multi-instance pub-sub.
 - Room naming: `group:{groupId}` and `dm:{userId1}:{userId2}` (sorted IDs).
+
+### Push notifications (Phase 4)
+
+- Expo Push is the first provider, but API code depends on `IPushNotificationProvider` and stores provider-neutral device rows (`provider`, `platform`, `token`, `installationId`).
+- `users.push_permission_status` is user-level preference state: `null` means not asked, `granted` means registered, `denied` means OS denied, and `disabled` means in-app opt-out.
+- Mobile asks from Home only while status is `null`; once the user grants or denies permission, future changes happen from Profile only.
+- Message fan-out is intentionally separate: this setup registers devices and provider adapters, but chat/DM use cases will call the push port in later slices.
 
 ### Media uploads (Phase 3)
 
