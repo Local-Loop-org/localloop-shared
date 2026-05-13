@@ -56,7 +56,10 @@ Response 200:
     "id": string,
     "displayName": string,
     "avatarUrl": string | null,
-    "provider": "google"
+    "dmPermission": "nobody" | "members" | "everyone",
+    "pushPermissionStatus": "granted" | "denied" | "disabled" | null,
+    "provider": "google",
+    "createdAt": string
   }
 }
 
@@ -122,7 +125,9 @@ Response 200:
   "displayName": string,
   "avatarUrl": string | null,
   "dmPermission": "nobody" | "members" | "everyone",
-  "provider": "google" | "apple"
+  "pushPermissionStatus": "granted" | "denied" | "disabled" | null,
+  "provider": "google" | "apple",
+  "createdAt": string
 }
 ```
 
@@ -165,6 +170,73 @@ Response 204: (no body)
 Notes:
   - lat/lng are accepted but never persisted. Server derives geohash (precision 6) and stores only that.
   - Client should only call this if user moved >300m or opened the app.
+```
+
+---
+
+## Push Notifications
+
+Provider decision: Expo Push first, behind provider-neutral contracts so an FCM adapter can be added later without changing mobile screens or message use cases.
+
+### Register current push device
+
+```
+PUT /users/me/push-devices/current
+Auth: required
+
+Request body:
+{
+  "installationId": string,
+  "provider": "expo",
+  "platform": "ios" | "android",
+  "token": string
+}
+
+Response 200:
+{
+  "status": "registered"
+}
+
+Side effects:
+  - upserts the current installation in push_devices
+  - sets users.push_permission_status = 'granted'
+
+Errors:
+  400 INVALID_PUSH_TOKEN
+  400 UNSUPPORTED_PUSH_PROVIDER
+```
+
+---
+
+### Disable current push device
+
+```
+DELETE /users/me/push-devices/current?installationId=<id>&provider=expo
+Auth: required
+
+Response 204
+```
+
+---
+
+### Update push permission
+
+```
+PATCH /users/me/push-permission
+Auth: required
+
+Request body:
+{
+  "status": "denied" | "disabled"
+}
+
+Response 204
+
+Notes:
+  - `null` means the app has not asked the user for notification permission yet.
+  - `denied` records an OS-level denial and prevents automatic prompts.
+  - `disabled` records an in-app opt-out and disables all registered devices.
+  - `granted` is only written by registering a valid push device.
 ```
 
 ---

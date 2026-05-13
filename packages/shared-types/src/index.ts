@@ -45,6 +45,21 @@ export enum RequestStatus {
   REJECTED = 'rejected',
 }
 
+export enum PushProvider {
+  EXPO = 'expo',
+}
+
+export enum PushPermissionStatus {
+  GRANTED = 'granted',
+  DENIED = 'denied',
+  DISABLED = 'disabled',
+}
+
+export enum DevicePlatform {
+  IOS = 'ios',
+  ANDROID = 'android',
+}
+
 export interface NearbyGroup {
   id: string;
   name: string;
@@ -70,6 +85,8 @@ export interface UserSummary {
   displayName: string;
   avatarUrl: string | null;
   dmPermission: DmPermission;
+  /** null means the app has not asked this user for notification permission yet. */
+  pushPermissionStatus: PushPermissionStatus | null;
   provider: Provider;
   createdAt: string;
 }

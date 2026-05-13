@@ -19,6 +19,7 @@
 | avatar_url | TEXT | nullable | Profile picture URL |
 | geohash | CHAR(6) | nullable | Current location (precision 6 ≈ 1.2km²) |
 | dm_permission | dm_permission_enum | NOT NULL, DEFAULT `members` | Who can send DMs |
+| push_permission_status | push_permission_status_enum | nullable | `null` = not asked yet; otherwise latest OS/app notification preference |
 | is_active | BOOLEAN | NOT NULL, DEFAULT true | Soft-ban flag |
 | last_seen_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Used for lazy location updates |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
@@ -109,6 +110,28 @@
 
 ---
 
+### push_devices ✓ migrated
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| user_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | Owner of the installation |
+| installation_id | VARCHAR(128) | NOT NULL | Stable app-install ID generated on device |
+| provider | push_provider_enum | NOT NULL | Active provider (`expo` in v1) |
+| platform | device_platform_enum | NOT NULL | `ios` or `android` |
+| token | TEXT | NOT NULL | Provider token; Expo push token in v1 |
+| enabled | BOOLEAN | NOT NULL, DEFAULT true | Disabled on in-app opt-out or device disable |
+| last_seen_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Updated on registration/upsert |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| disabled_at | TIMESTAMPTZ | nullable | Last disable timestamp |
+
+**Unique constraint:** `(user_id, installation_id, provider)`
+
+**Indexes:**
+- `idx_push_devices_user_id` on `(user_id)`
+
+---
+
 ### direct_messages [PLANNED — Phase 5]
 
 | Column | Type | Constraints | Description |
@@ -138,6 +161,18 @@
 'nobody'    -- rejects all DMs with 403
 'members'   -- accepts only if sender shares a group with recipient
 'everyone'  -- accepts from any authenticated user
+
+-- push_permission_status_enum
+'granted'
+'denied'
+'disabled'
+
+-- push_provider_enum
+'expo'
+
+-- device_platform_enum
+'ios'
+'android'
 
 -- anchor_type_enum
 'establishment'  -- bar, restaurant, shop (~100m radius)
@@ -183,3 +218,4 @@ See `architecture.md` for full rationale. Summary: geohash for privacy (no coord
 | Migration | Description | Date |
 |-----------|-------------|------|
 | 1710770000000-InitialSetup | PostGIS, all enums, users table | 2024-03-18 |
+| 1716000000000-AddPushNotifications | push permission status + push_devices registry | 2026-05-13 |
