@@ -7,9 +7,11 @@
 
 ## Current phase
 
-**Phase 4 push notification initial setup in progress on `feat/push-notifications-setup`.** DP-02 is resolved: use Expo Push first behind provider-neutral contracts so Firebase FCM can be added later. This slice adds shared push enums, API push-device registration/preferences, and mobile permission/token registration; message notification fan-out is intentionally deferred to the next slice. Other unblocked items remain: HOME-11, GroupMembersScreen redesign + unban, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is now hidden until the real search screen ships.
+**Phase 4 group-message push fan-out implemented on `feat/group-message-push`.** DP-02 is resolved: Expo Push remains behind provider-neutral contracts so Firebase FCM can be added later. Initial setup is complete, and `/chat` group messages now trigger best-effort push notifications for eligible offline group members. Other unblocked items remain: DMs, HOME-11, GroupMembersScreen redesign + unban, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
 
 ## Last updated
+
+2026-05-13 — Group-message push notification fan-out implemented on `feat/group-message-push` (API + docs). `ChatGateway` now emits `new_message` first, then best-effort sends Expo push notifications through the provider-neutral notification use case. Recipients are enabled push devices for active group members with `users.push_permission_status = 'granted'`, excluding the sender and sockets currently connected to `group:{groupId}`. Notification previews collapse whitespace, cap at 120 chars, and immediate Expo `DeviceNotRegistered` ticket errors disable the affected token. No mobile changes in this slice; tap-to-chat deep-linking remains deferred.
 
 2026-05-13 — Phase 4 push notification initial setup implemented on `feat/push-notifications-setup` (shared + API + mobile). **Shared**: `@localloop/shared-types@1.5.0` adds `PushProvider`, `PushPermissionStatus`, `DevicePlatform`, and extends `UserSummary.pushPermissionStatus`. **API**: migration `1716000000000-AddPushNotifications` adds `users.push_permission_status` + `push_devices`; new `NotificationsModule` exposes `PUT /users/me/push-devices/current`, `DELETE /users/me/push-devices/current`, and `PATCH /users/me/push-permission`; Expo Push is implemented behind `IPushNotificationProvider` but not yet called by chat. **Mobile**: adds `expo-notifications` / `expo-constants`, stores a stable installation ID, bootstraps permission once from Home when status is `null`, moves later changes to the Profile notification toggle, and hides the no-op Home search icon. Message notification fan-out is next.
 
@@ -270,9 +272,10 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 - [x] Resolve DP-02: Expo Push first behind a provider-neutral API/mobile boundary, with future FCM adapter support.
 - [x] Push notification initial setup: shared contracts, `push_devices`, user permission status, API registration/preference endpoints, and provider port + Expo adapter.
 - [x] Mobile push registration handling: Home asks once when `pushPermissionStatus = null`; Profile toggle owns later enable/disable changes.
+- [x] Group message push fan-out: best-effort Expo push for active offline group members, excluding sender and users connected to `group:{groupId}`.
 - [ ] Migration: `direct_messages` table
 - [ ] DMModule: `SendDirectMessageUseCase` (enforces `dm_permission` rules)
-- [ ] Push notification fan-out for new messages
+- [ ] Push notification fan-out for direct messages
 - [ ] Mobile: DM screen
 - [ ] Maestro E2E: DM flow with each `dm_permission` level
 

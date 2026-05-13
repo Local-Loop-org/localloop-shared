@@ -169,7 +169,9 @@ Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicate
 - Expo Push is the first provider, but API code depends on `IPushNotificationProvider` and stores provider-neutral device rows (`provider`, `platform`, `token`, `installationId`).
 - `users.push_permission_status` is user-level preference state: `null` means not asked, `granted` means registered, `denied` means OS denied, and `disabled` means in-app opt-out.
 - Mobile asks from Home only while status is `null`; once the user grants or denies permission, future changes happen from Profile only.
-- Message fan-out is intentionally separate: this setup registers devices and provider adapters, but chat/DM use cases will call the push port in later slices.
+- Group message fan-out runs after successful `/chat` `send_message` delivery. `ChatGateway` emits `new_message`, then fires a best-effort notification use case that excludes the sender and users currently connected to `group:{groupId}`.
+- Notification delivery uses enabled device rows for active group members whose user-level push permission is `granted`. Immediate Expo `DeviceNotRegistered` ticket errors disable the affected token.
+- DM push fan-out, receipt polling, and mobile notification deep-link routing are deferred.
 
 ### Media uploads (Phase 3)
 
