@@ -60,6 +60,24 @@ export enum DevicePlatform {
   ANDROID = 'android',
 }
 
+export const ChatSocketEvents = {
+  JOIN_GROUP: 'join_group',
+  LEAVE_GROUP: 'leave_group',
+  SEND_MESSAGE: 'send_message',
+  WATCH_PRESENCE: 'watch_presence',
+  UNWATCH_PRESENCE: 'unwatch_presence',
+  WATCH_GROUP_SUMMARIES: 'watch_group_summaries',
+  UNWATCH_GROUP_SUMMARIES: 'unwatch_group_summaries',
+  MARK_GROUP_READ: 'mark_group_read',
+  NEW_MESSAGE: 'new_message',
+  PRESENCE_UPDATE: 'presence_update',
+  GROUP_SUMMARY_UPDATE: 'group_summary_update',
+  ERROR: 'error',
+} as const;
+
+export type ChatSocketEvent =
+  (typeof ChatSocketEvents)[keyof typeof ChatSocketEvents];
+
 export interface NearbyGroup {
   id: string;
   name: string;
