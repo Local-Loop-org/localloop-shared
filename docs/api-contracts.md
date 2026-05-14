@@ -314,6 +314,43 @@ Notes:
 
 ---
 
+### List my groups
+
+```
+GET /groups/me
+Auth: required, active memberships only
+Query: ?limit=20&cursor=<cursor>  // limit max 50
+
+Response 200:
+{
+  "data": [
+    {
+      "id": string,
+      "name": string,
+      "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
+      "anchorLabel": string,
+      "memberCount": number,
+      "myRole": "owner" | "moderator" | "member",
+      "lastActivityAt": string,  // ISO 8601; last message or joined_at fallback
+      "lastMessage": {
+        "content": string | null,
+        "senderName": string,
+        "createdAt": string
+      } | null,
+      "lastReadAt": string | null,
+      "unreadCount": number
+    }
+  ],
+  "next_cursor": string | null
+}
+
+Notes:
+  - unreadCount counts non-deleted messages created after lastReadAt, excluding messages sent by the caller.
+  - lastReadAt is persisted on group_members and is advanced by the Socket.IO mark_group_read event.
+```
+
+---
+
 ### Create group
 
 ```
@@ -588,6 +625,19 @@ notes: subscribes to read-only presence updates without joining counted chat roo
 event: unwatch_presence
 payload: { "groupIds": string[] }
 
+event: watch_group_summaries
+payload: { "groupIds": string[] }  // max 50 unique group ids
+notes: subscribes to user-specific my-groups summary updates.
+       Only ACTIVE members may watch a group's summary.
+
+event: unwatch_group_summaries
+payload: { "groupIds": string[] }
+
+event: mark_group_read
+payload: { "groupId": string }
+notes: advances the caller's persisted group_members.last_read_at and emits a
+       fresh group_summary_update to the socket.
+
 event: send_message
 payload:
 {
@@ -633,6 +683,22 @@ payload: { "groupId": string, "count": number }
 trigger: any counted chat socket joins/leaves the group room or disconnects;
          also emitted immediately after a socket starts watching that group
 caveat: same user on multiple devices is counted multiple times in v1
+
+event: group_summary_update
+payload:
+{
+  "groupId": string,
+  "lastActivityAt": string,
+  "lastMessage": {
+    "content": string | null,
+    "senderName": string,
+    "createdAt": string
+  } | null,
+  "lastReadAt": string | null,
+  "unreadCount": number
+}
+trigger: immediately after watch_group_summaries, mark_group_read, and new group messages.
+notes: payload is user-specific; unreadCount excludes messages sent by the recipient.
 
 event: error
 payload: { "code": string, "message": string }
