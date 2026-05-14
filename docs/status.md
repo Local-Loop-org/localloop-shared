@@ -7,9 +7,11 @@
 
 ## Current phase
 
-**Phase 4 group-message push fan-out implemented on `feat/group-message-push`.** DP-02 is resolved: Expo Push remains behind provider-neutral contracts so Firebase FCM can be added later. Initial setup is complete, and `/chat` group messages now trigger best-effort push notifications for eligible offline group members. Other unblocked items remain: DMs, HOME-11, GroupMembersScreen redesign + unban, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
+**HOME-11 My Groups freshness implemented on `feat/home-11-summaries`.** My Groups now has persisted read state, unread counts from `GET /groups/me`, and Socket.IO summary updates on the existing `/chat` namespace. Other unblocked items remain: DMs, GroupMembersScreen redesign + unban, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
 
 ## Last updated
+
+2026-05-14 — HOME-11 My Groups freshness implemented on `feat/home-11-summaries` (shared + API + mobile). **Shared**: `@localloop/shared-types@1.6.0` adds `MyGroup`, `MyGroupLastMessage`, and `GroupSummaryUpdate`. **API**: migration `1716100000000-AddGroupMemberLastReadAt` adds `group_members.last_read_at`; `GET /groups/me` now returns `lastReadAt` + persisted `unreadCount` while preserving `lastMessage`; `/chat` adds `watch_group_summaries`, `unwatch_group_summaries`, `mark_group_read`, and user-specific `group_summary_update` payloads. **Mobile**: My Groups queries are limit-specific but updated together by realtime events; Home and `MyGroupsScreen` reuse a shared `MyGroupRow`; the presence socket also watches group summaries, and open chats mark the group read.
 
 2026-05-13 — Group-message push notification fan-out implemented on `feat/group-message-push` (API + docs). `ChatGateway` now emits `new_message` first, then best-effort sends Expo push notifications through the provider-neutral notification use case. Recipients are enabled push devices for active group members with `users.push_permission_status = 'granted'`, excluding the sender and sockets currently connected to `group:{groupId}`. Notification previews collapse whitespace, cap at 120 chars, and immediate Expo `DeviceNotRegistered` ticket errors disable the affected token. No mobile changes in this slice; tap-to-chat deep-linking remains deferred.
 
@@ -96,7 +98,7 @@
 
 ## In progress
 
-Nothing in progress. Pick next from "Up next": HOME-11 (My Groups unread + fresh last message), GroupMembersScreen redesign + unban, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, or Phase 3 Slice 3 (message permissions). HOME-8 search is deferred to Phase 5 Polish.
+Nothing in progress. Pick next from "Up next": GroupMembersScreen redesign + unban, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 message permissions, direct-message push fan-out, or mobile notification routing. HOME-8 search is deferred to Phase 5 Polish.
 
 ---
 
@@ -264,7 +266,7 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 - [ ] **HOME-8** Mobile: deferred to Phase 5 Polish; the no-op search icon is hidden, and the real group-search screen still needs to be built.
 - [x] **HOME-9** API + mobile: full membership status on discovery cards. — _Done (`feat/home-9-membership-status`)._
 - [x] **HOME-10** API + mobile: configurable discovery radius with mobile UI. — _Done (`feat/home-10-radius` + `feat/home-10-mobile-radius`)._
-- [ ] **HOME-11** API + mobile: My Groups freshness. Ensure `GET /groups/me` supplies `unreadCount`, `lastReadAt`, and `lastMessage`; extract/reuse one `MyGroupRow` for Home and `MyGroupsScreen`; render unread badges; extend Socket.IO with a lightweight group-summary event so new messages refresh the last-message preview without waiting for a refetch.
+- [x] **HOME-11** API + mobile: My Groups freshness. `GET /groups/me` supplies `unreadCount`, `lastReadAt`, and `lastMessage`; one shared `MyGroupRow` is reused by Home and `MyGroupsScreen`; unread badges render from persisted counts; `/chat` emits user-specific `group_summary_update` events so new messages refresh the preview without waiting for a refetch.
 - [ ] **HOME-12** Mobile: real `MapScreen` replacing the current placeholder. Show nearby groups on a map using the existing location/radius model, with pins/clusters that open the same group chat/detail flow as Home.
 
 ### Phase 4 — DMs + Push Notifications

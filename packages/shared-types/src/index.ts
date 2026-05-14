@@ -80,6 +80,33 @@ export interface PresenceUpdate {
   count: number;
 }
 
+export interface MyGroupLastMessage {
+  content: string | null;
+  senderName: string;
+  createdAt: string;
+}
+
+export interface MyGroup {
+  id: string;
+  name: string;
+  anchorType: AnchorType;
+  anchorLabel: string;
+  memberCount: number;
+  myRole: MemberRole;
+  lastActivityAt: string;
+  lastMessage: MyGroupLastMessage | null;
+  lastReadAt: string | null;
+  unreadCount: number;
+}
+
+export interface GroupSummaryUpdate {
+  groupId: string;
+  lastActivityAt: string;
+  lastMessage: MyGroupLastMessage | null;
+  lastReadAt: string | null;
+  unreadCount: number;
+}
+
 export interface UserSummary {
   id: string;
   displayName: string;

@@ -67,6 +67,7 @@
 | role | member_role_enum | NOT NULL, DEFAULT `member` | `owner` / `moderator` / `member` |
 | status | member_status_enum | NOT NULL, DEFAULT `active` | `active` / `pending` / `banned` |
 | joined_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| last_read_at | TIMESTAMPTZ | nullable | User-specific read watermark for group unread counts |
 
 **Unique constraint:** `(group_id, user_id)`
 
