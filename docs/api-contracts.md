@@ -534,6 +534,74 @@ Errors:
 
 ---
 
+### Unban member
+
+```
+POST /groups/:id/members/:userId/unban
+Auth: required, owner or moderator
+Request body: (empty)
+
+Response 204
+
+Errors:
+  403 FORBIDDEN — caller is not an active owner or moderator
+  404 MEMBER_NOT_FOUND
+  400 TARGET_NOT_BANNED — the member exists but is not currently banned
+```
+
+Notes:
+- Unban hard-deletes the `group_members` row for the target user. The user is treated as a non-member afterwards and can re-discover the group and request to join again as a regular member.
+- `memberCount` is unchanged: banned rows are not counted, so removing one does not affect the total.
+- Operation is idempotent at the repository layer: a second call with the same arguments is a no-op (returns 404 because the row is gone).
+
+---
+
+### Promote member (to moderator)
+
+```
+POST /groups/:id/members/:userId/promote
+Auth: required, owner only (active)
+Request body: (empty)
+
+Response 204
+
+Errors:
+  403 FORBIDDEN — caller is not the group's active owner
+  403 CANNOT_CHANGE_OWNER_ROLE — the target is the group owner
+  404 MEMBER_NOT_FOUND
+  400 TARGET_NOT_ACTIVE — target exists but status is BANNED or PENDING
+  400 ALREADY_MODERATOR — target is already a moderator
+```
+
+Notes:
+- Only the active OWNER can change roles. This prevents moderator chain-promotion.
+- `memberCount` is unchanged.
+
+---
+
+### Demote member (to regular member)
+
+```
+POST /groups/:id/members/:userId/demote
+Auth: required, owner only (active)
+Request body: (empty)
+
+Response 204
+
+Errors:
+  403 FORBIDDEN — caller is not the group's active owner
+  403 CANNOT_CHANGE_OWNER_ROLE — the target is the group owner
+  404 MEMBER_NOT_FOUND
+  400 TARGET_NOT_ACTIVE — target exists but status is BANNED or PENDING
+  400 NOT_A_MODERATOR — target is not currently a moderator
+```
+
+Notes:
+- Only the active OWNER can change roles.
+- The demoted member retains their `group_members` row, `joined_at`, and read state — only `role` flips from MODERATOR to MEMBER.
+
+---
+
 ## Messages [PLANNED — Phase 3]
 
 ### Get message history

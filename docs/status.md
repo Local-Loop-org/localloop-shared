@@ -7,9 +7,13 @@
 
 ## Current phase
 
-**HOME-11 My Groups freshness implemented on `feat/home-11-summaries`.** My Groups now has persisted read state, unread counts from `GET /groups/me`, and Socket.IO summary updates on the existing `/chat` namespace. Other unblocked items remain: DMs, GroupMembersScreen redesign + unban, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
+**Member role-change API shipped on `feat/member-role-changes` (API).** Active OWNERs can now promote a regular MEMBER to MODERATOR or demote a MODERATOR back to MEMBER via two focused endpoints. Combined with the unban work from earlier today, the API surface for the upcoming `GroupMembersScreen` redesign is nearly complete — only `listBannedMembers` remains as an API slice. Other unblocked items: DMs, the GroupMembersScreen redesign itself (mobile), HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
 
 ## Last updated
+
+2026-05-16 — Member role-change API shipped on `feat/member-role-changes` (API only; docs bundled on the in-flight `docs/groups-moderation` branch in shared). Two new OWNER-only endpoints: `POST /groups/:id/members/:userId/promote` (MEMBER → MODERATOR) and `POST /groups/:id/members/:userId/demote` (MODERATOR → MEMBER). Authorization is intentionally tighter than ban/unban — moderators cannot change roles, which prevents moderator chain-promotion and demotion retaliation between mods. `PromoteMemberUseCase` and `DemoteMemberUseCase` share the same guard shape (caller must be active OWNER; target must exist, be active, and not be the OWNER) and diverge only on the current-role precondition (`ALREADY_MODERATOR` / `NOT_A_MODERATOR`). New `updateMemberRole(groupId, userId, role)` on `IGroupRepository` is a plain UPDATE — `memberCount` is unchanged. Verification: 194/194 tests (18 new), lint + build clean.
+
+2026-05-15 — Unban member API endpoint shipped on `feat/unban-member-api` (API only; docs on `docs/groups-moderation` in shared). `POST /groups/:id/members/:userId/unban` lets an active OWNER or MODERATOR lift a ban. Implementation: `UnbanMemberUseCase` mirrors `BanMemberUseCase`'s authorization shape (caller must be active OWNER/MODERATOR) and adds a `TARGET_NOT_BANNED` (400) guard so the operation can only run on rows whose `status = 'banned'`. New `unbanMemberAtomic(groupId, userId)` on `IGroupRepository` hard-deletes the `group_members` row inside a transaction; `memberCount` is unchanged because BANNED rows are not counted. After unban the user is treated as a non-member: they can re-discover the group via `GET /groups/nearby` (which no longer filters them out) and request to join again as a regular member. Verification: 176/176 tests (8 new), lint + build clean. Mobile UI for the unban action is part of the upcoming `GroupMembersScreen` redesign; a `listBannedMembers` endpoint is the next API slice.
 
 2026-05-14 — HOME-11 My Groups freshness implemented on `feat/home-11-summaries` (shared + API + mobile). **Shared**: `@localloop/shared-types@1.6.0` adds `MyGroup`, `MyGroupLastMessage`, and `GroupSummaryUpdate`. **API**: migration `1716100000000-AddGroupMemberLastReadAt` adds `group_members.last_read_at`; `GET /groups/me` now returns `lastReadAt` + persisted `unreadCount` while preserving `lastMessage`; `/chat` adds `watch_group_summaries`, `unwatch_group_summaries`, `mark_group_read`, and user-specific `group_summary_update` payloads. **Mobile**: My Groups queries are limit-specific but updated together by realtime events; Home and `MyGroupsScreen` reuse a shared `MyGroupRow`; the presence socket also watches group summaries, and open chats mark the group read.
 
@@ -98,7 +102,7 @@
 
 ## In progress
 
-Nothing in progress. Pick next from "Up next": GroupMembersScreen redesign + unban, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 message permissions, direct-message push fan-out, or mobile notification routing. HOME-8 search is deferred to Phase 5 Polish.
+Nothing in progress. Pick next from "Up next": `listBannedMembers` API endpoint (last API piece before the GroupMembersScreen redesign), the GroupMembersScreen redesign itself, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 message permissions, direct-message push fan-out, or mobile notification routing. HOME-8 search is deferred to Phase 5 Polish.
 
 ---
 
@@ -205,7 +209,7 @@ Nothing in progress. Pick next from "Up next": GroupMembersScreen redesign + unb
 **Phase 2 remaining**
 
 - [ ] Redis cache for `GET /groups/nearby` (TTL = 5min per geohash cell) — unblocked (DP-01 resolved → Upstash)
-- [ ] GroupMembersScreen redesign + unban: API exposes banned users and an unban mutation as needed; mobile redesigns `GroupMembersScreen` into three sections — active members, join requests (only for approval-required groups), and banned users — with React Query-backed pagination/mutations.
+- [ ] GroupMembersScreen redesign + unban: API actions done — unban (`POST /groups/:id/members/:userId/unban` on `feat/unban-member-api`) and role changes (`POST .../promote` and `POST .../demote` on `feat/member-role-changes`); still needed on the API: a `listBannedMembers` endpoint. Mobile still needs the redesign that splits `GroupMembersScreen` into three sections — active members, join requests (only for approval-required groups), and banned users — with React Query-backed pagination/mutations and per-row promote/demote actions for owners.
 - [x] `DeleteGroupUseCase` + `DELETE /groups/:id` (owner-only; cascades members, requests, messages). Mobile UI (owner action sheet + optimistic removal) deferred to separate mobile branch.
 - [x] Unit tests for all Phase 2 use cases, mobile screens, hook, api module
 - [ ] Integration tests (Supertest + test DB) for Phase 2 endpoints
