@@ -681,19 +681,73 @@ Notes: client uploads directly to Supabase, then sends the storageKey via WebSoc
 
 ---
 
-## Direct Messages [PLANNED — Phase 5]
+## Direct Messages
 
 ### Get DM history
 
 ```
 GET /dm/:userId
 Auth: required
-Query: ?limit=50&before=<cursor>
+Query: ?limit=50&before=<cursor>     // limit 1..100, default 50
 
-Response 200: (same shape as group messages)
+Response 200:
+{
+  "data": [
+    {
+      "id": string,
+      "senderId": string,
+      "senderName": string,
+      "senderAvatar": string | null,
+      "recipientId": string,
+      "content": string | null,
+      "mediaUrl": string | null,
+      "mediaType": "image" | "video" | null,
+      "createdAt": string             // ISO 8601, also used as the next cursor
+    }
+  ],
+  "next_cursor": string | null
+}
+
+notes: ordered newest-first; pagination uses created_at as cursor. No DM policy
+       check on read — once a thread exists, either participant can browse it.
 
 Errors:
-  403 DM_NOT_ALLOWED — recipient's dm_permission blocks this sender
+  400 CANNOT_DM_SELF       — :userId equals the caller
+  404 RECIPIENT_NOT_FOUND  — user missing or inactive
+```
+
+### Send DM
+
+```
+POST /dm/:userId
+Auth: required
+Body:
+{
+  "content": string   // 1..2000 chars
+}
+
+Response 201:
+{
+  "id": string,
+  "senderId": string,
+  "senderName": string,
+  "senderAvatar": string | null,
+  "recipientId": string,
+  "content": string | null,
+  "mediaUrl": string | null,
+  "mediaType": "image" | "video" | null,
+  "createdAt": string
+}
+
+notes: media DMs are not supported in v1; mediaUrl / mediaType are always null.
+
+Errors:
+  400 CANNOT_DM_SELF             — :userId equals the caller
+  400 EMPTY_MESSAGE              — trimmed content is empty
+  400 MEDIA_DM_NOT_SUPPORTED     — body included media fields (reserved for v2)
+  403 DM_NOT_ALLOWED             — recipient's dm_permission blocks this sender
+                                   (NOBODY, or MEMBERS with no shared active group)
+  404 RECIPIENT_NOT_FOUND        — user missing or inactive
 ```
 
 ---
@@ -744,7 +798,22 @@ payload:
 }
 
 event: join_dm
+payload: { "userId": string }  // the other participant; ack { ok: boolean }
+notes: joins the conversation room dm:{sortedUserA}:{sortedUserB}. Rejects when
+       userId equals the caller (returns { ok: false } and emits ERROR).
+
+event: leave_dm
 payload: { "userId": string }  // the other participant
+
+event: send_dm
+payload:
+{
+  "recipientId": string,
+  "content": string | null
+}
+notes: same policy as POST /dm/:userId. On success the server broadcasts
+       new_direct_message into the sorted-pair room; on failure the sender
+       receives an ERROR event with the use case's error code.
 ```
 
 ### Server → Client
@@ -779,6 +848,22 @@ payload: { "groupId": string, "count": number }
 trigger: any counted chat socket joins/leaves the group room or disconnects;
          also emitted immediately after a socket starts watching that group
 caveat: same user on multiple devices is counted multiple times in v1
+
+event: new_direct_message
+payload:
+{
+  "id": string,
+  "senderId": string,
+  "senderName": string,
+  "senderAvatar": string | null,
+  "recipientId": string,
+  "content": string | null,
+  "mediaUrl": string | null,
+  "mediaType": string | null,
+  "createdAt": string
+}
+trigger: a direct message is sent successfully via send_dm or POST /dm/:userId.
+notes: only delivered to sockets that have joined the dm:{a}:{b} room.
 
 event: group_summary_update
 payload:

@@ -7,9 +7,11 @@
 
 ## Current phase
 
-**Phase 3 Slice 3 kicked off with the `MessagePermission` enum on `@localloop/shared-types@1.8.0`** (`feat/message-permission-enum`). The contract values (`ADMIN_ONLY`, `MEMBERS_IN_RADIUS`, `ALL_MEMBERS`) are now published; the API migration (`send_text_perm` + `send_media_perm`), `SendMessageUseCase` policy enforcement, `CreateGroupUseCase`/`UpdateGroupUseCase` plumbing, and mobile composer gating + `CreateGroupScreen` selector wiring are the remaining steps. The GroupMembersScreen API surface (active/banned/requests lists + unban/promote/demote actions) is also complete — only the mobile redesign remains. Other unblocked items: DMs, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, direct-message push fan-out, and mobile notification routing. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
+**Phase 4 DM API slice landed on `feat/dm-api-slice`** (shared + API). `@localloop/shared-types@1.9.0` adds the `DirectMessage` interface plus the `JOIN_DM`/`LEAVE_DM`/`SEND_DM` and `NEW_DIRECT_MESSAGE` socket-event constants; the API gains the `direct_messages` table, `DirectMessagesModule` with `SendDirectMessageUseCase` + `GetDirectMessageHistoryUseCase`, `GET`/`POST /dm/:userId` endpoints, and `ChatGateway` DM handlers that broadcast into the `dm:{sortedA}:{sortedB}` room. Mobile is building the DM screen against this contract in parallel. Still open: direct-message push fan-out (its own follow-up), media DMs (rejected at v1 use case), Phase 3 Slice 3 message permissions (mid-flight on shared + API), Phase 3 Slice 2 media upload, the GroupMembersScreen mobile redesign, HOME-12 Map, and Phase 2 Redis cache. HOME-8 search remains Phase 5 Polish; the no-op Home search icon stays hidden until the real search screen ships.
 
 ## Last updated
+
+2026-05-16 — Phase 4 DM API slice shipped on `feat/dm-api-slice` (shared + API). **Shared**: `@localloop/shared-types@1.9.0` adds the `DirectMessage` interface and four DM socket events (`JOIN_DM`, `LEAVE_DM`, `SEND_DM`, `NEW_DIRECT_MESSAGE`). **API**: migration `1717000000000-CreateDirectMessages` adds the `direct_messages` table (functional `idx_dm_conversation` index on `LEAST/GREATEST(sender, recipient), created_at DESC` + `chk_dm_distinct_participants` check). New `DirectMessagesModule` provides `SendDirectMessageUseCase` (enforces `dm_permission`: `NOBODY` → 403; `MEMBERS` → `IGroupRepository.hasSharedActiveGroup` check; `EVERYONE` → allow) and `GetDirectMessageHistoryUseCase` (cursor pagination, no policy check on read). HTTP: `POST /dm/:userId` and `GET /dm/:userId?limit&before`. WebSocket: `ChatGateway` extended with `join_dm`/`leave_dm`/`send_dm`; rooms are `dm:{sortedA}:{sortedB}` per `architecture.md`. Out of scope (deferred): DM push fan-out, media DMs (use case rejects non-null `mediaUrl`/`mediaType`). Verification: 36/36 suites, 223/223 tests (+22 new), lint + build clean.
 
 2026-05-16 — `MessagePermission` enum added to `@localloop/shared-types@1.8.0` on `feat/message-permission-enum` (shared only). First step of Phase 3 Slice 3. New values: `ADMIN_ONLY` (sender must be `OWNER` or `MODERATOR`), `MEMBERS_IN_RADIUS` (sender's geohash must overlap the group's anchor neighbors), `ALL_MEMBERS` (any active member). Pure contract change — no API or mobile wiring yet; the API migration (`send_text_perm` + `send_media_perm` on `groups`), `SendMessageUseCase` policy enforcement, and mobile composer gating + `CreateGroupScreen` selectors follow in their own slices once the package publishes. Verification: lint + build clean.
 
@@ -279,15 +281,50 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 
 ### Phase 4 — DMs + Push Notifications
 
+**Done**
+
 - [x] Resolve DP-02: Expo Push first behind a provider-neutral API/mobile boundary, with future FCM adapter support.
 - [x] Push notification initial setup: shared contracts, `push_devices`, user permission status, API registration/preference endpoints, and provider port + Expo adapter.
 - [x] Mobile push registration handling: Home asks once when `pushPermissionStatus = null`; Profile toggle owns later enable/disable changes.
 - [x] Group message push fan-out: best-effort Expo push for active offline group members, excluding sender and users connected to `group:{groupId}`.
-- [ ] Migration: `direct_messages` table
-- [ ] DMModule: `SendDirectMessageUseCase` (enforces `dm_permission` rules)
-- [ ] Push notification fan-out for direct messages
-- [ ] Mobile: DM screen
-- [ ] Maestro E2E: DM flow with each `dm_permission` level
+- [x] Migration: `direct_messages` table — `1717000000000-CreateDirectMessages` (functional `idx_dm_conversation` index + `chk_dm_distinct_participants` check).
+- [x] DMModule: `SendDirectMessageUseCase` (enforces `dm_permission` rules) and `GetDirectMessageHistoryUseCase`; `IGroupRepository.hasSharedActiveGroup` added for the `MEMBERS` policy check; `ChatGateway` extended with `join_dm`/`leave_dm`/`send_dm` and broadcasts `new_direct_message` into `dm:{sortedA}:{sortedB}`. HTTP: `GET`/`POST /dm/:userId`. Media DMs rejected in v1 (`MEDIA_DM_NOT_SUPPORTED`).
+
+**Inbox + DM chat flow — remaining slices**
+
+The mobile InboxScreen (I2 — search + chips: Todas / Não lidas / Solicitações / Arquivadas) is implemented on `feat/inbox-i2-search-chips` with mocked data, the existing `SearchInput` + `FilterChip`, the user `Avatar`, and a new shared `ConversationRow` primitive reused by `MyGroupRow`. The slices below wire it to a real backend and add the matching DM chat experience.
+
+#### S1 · API: inbox-list + request endpoints
+Add (or confirm) the REST surface the InboxScreen needs once the mocks come out: paginated `GET /dm` conversations list returning peer summary, last message preview, unread count, archived flag; archive/unarchive mutations; mark-read endpoint; and the DM request flow (list/approve/ignore) if the policy can ever create a pending request instead of a thread message. New use cases follow Clean Architecture, unit + integration tests as usual.
+
+#### S2 · API: realtime inbox summary events
+Extend `ChatGateway` with `watch_dm_inbox` / `unwatch_dm_inbox` for user-scoped subscriptions, and emit `dm_summary_update` whenever a thread's last message or unread count changes. Reuses the existing Redis adapter. Lets the InboxScreen rows refresh live without polling.
+
+#### S3 · API: DM push fan-out
+Reuse the provider-neutral notification port already in place. On every successful `send_dm` (HTTP or WS), fire an Expo push to the recipient when they're not currently connected to `dm:{a}:{b}`. DM request creation fires a separate "you have a new message request" push. Payloads carry the peer id so mobile can deep-link.
+
+#### M1 · Mobile: wire InboxScreen to the API
+Replace `MOCK_DMS` / `MOCK_REQUESTS` with React Query hooks (`useDmConversations`, `useDmRequests`) backed by a new `dms.api.ts`. Active / unread / archived chips hit the same conversations endpoint with the right filter; Solicitações hits the requests endpoint. Mutations: archive, unarchive, mark-read, approve-request, ignore-request — all optimistic with rollback. Delete `data.ts` and the no-op tap handlers.
+
+#### M2 · Mobile: DmChatScreen
+New screen mirroring `GroupChatScreen` (same screen pattern, same bubbles + day separators + composer). Reuse the chat primitives, extracting them to `src/shared/ui/chat/` if not already. Header: back, peer `Avatar` + display name + online dot, more menu (archive, block, report). `useDmChat(peerId)` combines `useInfiniteQuery` for history with the WS subscription and an optimistic `useSendDirectMessage`. Mark-as-read on mount and on each incoming message while focused. Nav route added to `AuthenticatedStack`; InboxScreen `onOpenDm` navigates here.
+
+#### M3 · Mobile: realtime + push routing
+`useDmInboxRealtime()` listens for `dm_summary_update` and refreshes the conversations cache so previews land without a refetch. `useDmPresence(peerId)` powers the chat-header online dot (mirrors `useGroupPresence`). Extend the existing push notification handler to route DM payloads to `DmChatScreen` with the right `peerId`. Handle the push-and-WS-for-the-same-message dedup case.
+
+#### M4 · Mobile: DM requests UX
+The Solicitações chip (already in the InboxScreen) wires to `useDmRequests`. `RequestRow`'s Aceitar / Ignorar buttons (already there) call the new mutations. Optional banner on Home when N requests are pending (matches the I5 prototype; not in scope unless we want it).
+
+#### M5 · E2E
+Maestro flows: send a DM, receive a DM in real time, approve a DM request, tap a DM push notification → `DmChatScreen` opens with the right thread. One flow per `dm_permission` value.
+
+**Polish (Phase 5)** — block/unblock peer, report user, edit/delete own DM, media in DMs (depends on Phase 3 Slice 2 media upload), empty-state copy when the user has zero conversations and zero requests.
+
+**Open decisions**
+
+- Inbox-list shape: derive on the fly from `direct_messages` + an outer unread-count query vs. dedicated `dm_threads` table maintained on every send. Dedicated makes the inbox query a single index hit.
+- DM requests storage: separate `dm_requests` table vs. status column on a thread row. Separate is simpler; column scales better.
+- Gateway: keep DM events on `ChatGateway` (current) vs. split into a `/dm` namespace. Split simplifies permission rules; current reuses the connection.
 
 ### Phase 5 — Polish
 

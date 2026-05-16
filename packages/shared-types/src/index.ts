@@ -75,7 +75,11 @@ export const ChatSocketEvents = {
   WATCH_GROUP_SUMMARIES: 'watch_group_summaries',
   UNWATCH_GROUP_SUMMARIES: 'unwatch_group_summaries',
   MARK_GROUP_READ: 'mark_group_read',
+  JOIN_DM: 'join_dm',
+  LEAVE_DM: 'leave_dm',
+  SEND_DM: 'send_dm',
   NEW_MESSAGE: 'new_message',
+  NEW_DIRECT_MESSAGE: 'new_direct_message',
   PRESENCE_UPDATE: 'presence_update',
   GROUP_SUMMARY_UPDATE: 'group_summary_update',
   ERROR: 'error',
@@ -129,6 +133,18 @@ export interface GroupSummaryUpdate {
   lastMessage: MyGroupLastMessage | null;
   lastReadAt: string | null;
   unreadCount: number;
+}
+
+export interface DirectMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string | null;
+  recipientId: string;
+  content: string | null;
+  mediaUrl: string | null;
+  mediaType: MediaType | null;
+  createdAt: string;
 }
 
 export interface UserSummary {

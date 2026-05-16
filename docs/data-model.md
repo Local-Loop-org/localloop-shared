@@ -133,7 +133,7 @@
 
 ---
 
-### direct_messages [PLANNED — Phase 5]
+### direct_messages
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -141,13 +141,15 @@
 | sender_id | UUID | FK → users.id, NOT NULL | |
 | recipient_id | UUID | FK → users.id, NOT NULL | |
 | content | TEXT | nullable | |
-| media_url | TEXT | nullable | |
-| media_type | media_type_enum | nullable | |
+| media_url | TEXT | nullable | media DMs are reserved for a future slice; rejected at the use case in v1 |
+| media_type | media_type_enum | nullable | as above |
 | is_deleted | BOOLEAN | NOT NULL, DEFAULT false | |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
+**Check constraint:** `chk_dm_distinct_participants`: `sender_id <> recipient_id` — the use case also rejects self-DMs.
+
 **Indexes:**
-- `idx_dm_conversation` on `(LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id), created_at DESC)` — conversation cursor pagination
+- `idx_dm_conversation` on `(LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id), created_at DESC)` — functional index, serves both directions of the conversation in a single sort.
 
 ---
 
