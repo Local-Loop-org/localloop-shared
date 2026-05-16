@@ -7,11 +7,13 @@
 
 ## Current phase
 
-**Member role-change API shipped on `feat/member-role-changes` (API).** Active OWNERs can now promote a regular MEMBER to MODERATOR or demote a MODERATOR back to MEMBER via two focused endpoints. Combined with the unban work from earlier today, the API surface for the upcoming `GroupMembersScreen` redesign is nearly complete — only `listBannedMembers` remains as an API slice. Other unblocked items: DMs, the GroupMembersScreen redesign itself (mobile), HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
+**List-banned-members API shipped on `feat/list-banned-members` (API).** The API surface for the upcoming `GroupMembersScreen` redesign is now complete — active members (`GET .../members`), join requests (`GET .../requests`), banned members (`GET .../members/banned`), plus the unban + promote + demote actions are all in place. Mobile work is the only remaining piece. Other unblocked items: DMs, the GroupMembersScreen redesign itself (mobile), HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
 
 ## Last updated
 
 2026-05-16 — `MessagePermission` enum added to `@localloop/shared-types@1.8.0` on `feat/message-permission-enum` (shared only). First step of Phase 3 Slice 3. New values: `ADMIN_ONLY` (sender must be `OWNER` or `MODERATOR`), `MEMBERS_IN_RADIUS` (sender's geohash must overlap the group's anchor neighbors), `ALL_MEMBERS` (any active member). Pure contract change — no API or mobile wiring yet; the API migration (`send_text_perm` + `send_media_perm` on `groups`), `SendMessageUseCase` policy enforcement, and mobile composer gating + `CreateGroupScreen` selectors follow in their own slices once the package publishes. Verification: lint + build clean.
+
+2026-05-16 — List-banned-members API shipped on `feat/list-banned-members` (API only; docs on `docs/list-banned-members` in shared). New endpoint `GET /groups/:id/members/banned` is paginated, OWNER- or MODERATOR-only, and returns the same `GroupMemberDto` shape as the active-members list. `ListBannedMembersUseCase` reuses the same `findById` → `NotFoundException` guard as `ListGroupMembersUseCase` but with the tighter auth shape used by ban/unban. The existing `listMembersPaginated` repo method gained a required `status: MemberStatus` parameter (replacing the hard-coded `ACTIVE` filter); the active-members use case now passes `MemberStatus.ACTIVE` explicitly. Pagination cursor is `joined_at` — there is no `banned_at` column today (out-of-scope follow-up). Verification: 201/201 tests (7 new), lint + build clean.
 
 2026-05-16 — Member role-change API shipped on `feat/member-role-changes` (API only; docs bundled on the in-flight `docs/groups-moderation` branch in shared). Two new OWNER-only endpoints: `POST /groups/:id/members/:userId/promote` (MEMBER → MODERATOR) and `POST /groups/:id/members/:userId/demote` (MODERATOR → MEMBER). Authorization is intentionally tighter than ban/unban — moderators cannot change roles, which prevents moderator chain-promotion and demotion retaliation between mods. `PromoteMemberUseCase` and `DemoteMemberUseCase` share the same guard shape (caller must be active OWNER; target must exist, be active, and not be the OWNER) and diverge only on the current-role precondition (`ALREADY_MODERATOR` / `NOT_A_MODERATOR`). New `updateMemberRole(groupId, userId, role)` on `IGroupRepository` is a plain UPDATE — `memberCount` is unchanged. Verification: 194/194 tests (18 new), lint + build clean.
 
@@ -104,7 +106,7 @@
 
 ## In progress
 
-Nothing in progress. Pick next from "Up next": `listBannedMembers` API endpoint (last API piece before the GroupMembersScreen redesign), the GroupMembersScreen redesign itself, HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 message permissions, direct-message push fan-out, or mobile notification routing. HOME-8 search is deferred to Phase 5 Polish.
+Nothing in progress. Pick next from "Up next": GroupMembersScreen redesign (mobile — API surface is now complete), HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 message permissions, direct-message push fan-out, or mobile notification routing. HOME-8 search is deferred to Phase 5 Polish.
 
 ---
 
@@ -211,7 +213,7 @@ Nothing in progress. Pick next from "Up next": `listBannedMembers` API endpoint 
 **Phase 2 remaining**
 
 - [ ] Redis cache for `GET /groups/nearby` (TTL = 5min per geohash cell) — unblocked (DP-01 resolved → Upstash)
-- [ ] GroupMembersScreen redesign + unban: API actions done — unban (`POST /groups/:id/members/:userId/unban` on `feat/unban-member-api`) and role changes (`POST .../promote` and `POST .../demote` on `feat/member-role-changes`); still needed on the API: a `listBannedMembers` endpoint. Mobile still needs the redesign that splits `GroupMembersScreen` into three sections — active members, join requests (only for approval-required groups), and banned users — with React Query-backed pagination/mutations and per-row promote/demote actions for owners.
+- [ ] GroupMembersScreen redesign + unban: API surface complete — unban (`POST /groups/:id/members/:userId/unban` on `feat/unban-member-api`), role changes (`POST .../promote` and `POST .../demote` on `feat/member-role-changes`), and the banned-members list (`GET .../members/banned` on `feat/list-banned-members`). Mobile still needs the redesign that splits `GroupMembersScreen` into three sections — active members, join requests (only for approval-required groups), and banned users — with React Query-backed pagination/mutations and per-row promote/demote actions for owners.
 - [x] `DeleteGroupUseCase` + `DELETE /groups/:id` (owner-only; cascades members, requests, messages). Mobile UI (owner action sheet + optimistic removal) deferred to separate mobile branch.
 - [x] Unit tests for all Phase 2 use cases, mobile screens, hook, api module
 - [ ] Integration tests (Supertest + test DB) for Phase 2 endpoints

@@ -494,6 +494,34 @@ Response 200:
 }
 ```
 
+Returns only members whose `status = 'active'`. Banned and pending memberships are excluded.
+
+---
+
+### List banned members (owner or moderator)
+
+```
+GET /groups/:id/members/banned
+Auth: required, active owner or moderator
+Query: ?limit=50&before=<cursor>  // limit max 100, default 50
+
+Response 200:
+{
+  "data": [
+    { "userId": string, "displayName": string, "avatarUrl": string | null, "role": string }
+  ],
+  "next_cursor": string | null
+}
+
+Errors:
+  404 GROUP_NOT_FOUND
+  403 FORBIDDEN — caller is not an active owner or moderator
+```
+
+Notes:
+- Response shape mirrors `GET /groups/:id/members` (same `GroupMemberDto`). Combine with `POST /groups/:id/members/:userId/unban` to lift a ban.
+- Cursor is the row's `joined_at` (when the user originally joined). The schema has no `banned_at` column today, so the response cannot indicate when the ban occurred.
+
 ---
 
 ### Approve / reject join request (owner or moderator)
