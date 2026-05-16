@@ -7,7 +7,7 @@
 
 ## Current phase
 
-**List-banned-members API shipped on `feat/list-banned-members` (API).** The API surface for the upcoming `GroupMembersScreen` redesign is now complete — active members (`GET .../members`), join requests (`GET .../requests`), banned members (`GET .../members/banned`), plus the unban + promote + demote actions are all in place. Mobile work is the only remaining piece. Other unblocked items: DMs, the GroupMembersScreen redesign itself (mobile), HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, and Phase 3 Slice 3 message permissions. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
+**Phase 3 Slice 3 kicked off with the `MessagePermission` enum on `@localloop/shared-types@1.8.0`** (`feat/message-permission-enum`). The contract values (`ADMIN_ONLY`, `MEMBERS_IN_RADIUS`, `ALL_MEMBERS`) are now published; the API migration (`send_text_perm` + `send_media_perm`), `SendMessageUseCase` policy enforcement, `CreateGroupUseCase`/`UpdateGroupUseCase` plumbing, and mobile composer gating + `CreateGroupScreen` selector wiring are the remaining steps. The GroupMembersScreen API surface (active/banned/requests lists + unban/promote/demote actions) is also complete — only the mobile redesign remains. Other unblocked items: DMs, HOME-12, Phase 3 Slice 2 media upload, Phase 2 Redis cache, direct-message push fan-out, and mobile notification routing. HOME-8 search remains Phase 5 Polish; the no-op Home search icon is hidden until the real search screen ships.
 
 ## Last updated
 
@@ -106,7 +106,7 @@
 
 ## In progress
 
-Nothing in progress. Pick next from "Up next": GroupMembersScreen redesign (mobile — API surface is now complete), HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, Phase 3 Slice 3 message permissions, direct-message push fan-out, or mobile notification routing. HOME-8 search is deferred to Phase 5 Polish.
+Phase 3 Slice 3 message permissions is mid-flight: the shared `MessagePermission` enum is published (step 1/3); the API migration + `SendMessageUseCase` policy enforcement (step 2/3) and the mobile composer + `CreateGroupScreen` wiring (step 3/3) remain. Other picks from "Up next": GroupMembersScreen redesign (mobile — API surface is complete), HOME-12 (real Map screen), Phase 3 Slice 2 (media upload), Phase 2 Redis cache, direct-message push fan-out, or mobile notification routing. HOME-8 search is deferred to Phase 5 Polish.
 
 ---
 
