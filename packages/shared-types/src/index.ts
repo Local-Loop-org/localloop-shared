@@ -60,6 +60,12 @@ export enum DevicePlatform {
   ANDROID = 'android',
 }
 
+export enum MessagePermission {
+  ADMIN_ONLY = 'admin_only',
+  MEMBERS_IN_RADIUS = 'members_in_radius',
+  ALL_MEMBERS = 'all_members',
+}
+
 export const ChatSocketEvents = {
   JOIN_GROUP: 'join_group',
   LEAVE_GROUP: 'leave_group',
