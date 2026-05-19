@@ -742,8 +742,58 @@ Response 200:
 }
 
 notes: requests addressed to the caller (i.e. caller is the recipient).
-       Sourced from dm_requests. Accept/decline endpoints are not yet
-       implemented — see architecture.md "Open gaps".
+       Sourced from dm_requests. See POST /dm/requests/:requestId/accept
+       and POST /dm/requests/:requestId/decline to resolve a row.
+```
+
+### Accept DM request
+
+```
+POST /dm/requests/:requestId/accept
+Auth: required
+
+Response 200 (the materialized message — same shape as POST /dm/:userId's `type:'message'` branch but without the discriminator):
+{
+  "id": string,
+  "senderId": string,
+  "senderName": string,
+  "senderAvatar": string | null,
+  "recipientId": string,
+  "content": string | null,
+  "mediaUrl": string | null,
+  "mediaType": "image" | "video" | null,
+  "createdAt": string                  // ISO 8601 — original send's timestamp, NOT acceptance time
+}
+
+notes: caller must be the request's recipient. Single transaction:
+         1) materializes the held message into direct_messages preserving original created_at
+         2) writes dm_permission_exceptions(recipient → sender)
+         3) eager-inits dm_conversation_state for the sender (last_read_at = now())
+         4) deletes the dm_requests row
+       After the tx commits, dm_request_accepted is emitted to the original
+       sender's user-scoped sockets carrying the same payload.
+
+Errors:
+  404 DM_REQUEST_NOT_FOUND   — no row with that id, OR caller is not the recipient
+                               (existence hidden by design)
+```
+
+### Decline DM request
+
+```
+POST /dm/requests/:requestId/decline
+Auth: required
+
+Response 204 (no body)
+
+notes: caller must be the request's recipient. Deletes the dm_requests row.
+       Idempotent: returns 204 even when the row was already gone (e.g. the
+       sender's permission shifted and the request fell out via accept/decline
+       race). No WS event is emitted to the sender on decline.
+
+Errors:
+  404 DM_REQUEST_NOT_FOUND   — caller is not the recipient AND the row exists
+                               (existence hidden; if the row is gone, returns 204)
 ```
 
 ### Get DM history
@@ -967,31 +1017,28 @@ event: dm_request_sent
 payload: { "requestId": string }
 trigger: send_dm or POST /dm/:userId resolved to a request
          (result.type === 'request'). Sender-only ack — not broadcast.
-notes: lets the sender's UI show a pending-request state. [PLANNED — see
-       architecture.md "Open gaps"]
+notes: lets the sender's UI show a pending-request state.
 
 event: dm_request_accepted
 payload:
 {
-  "peerId": string,                // the accepting user (was the recipient)
-  "message": {                     // the materialized DM
-    "id": string,
-    "senderId": string,
-    "senderName": string,
-    "senderAvatarUrl": string | null,
-    "recipientId": string,
-    "content": string | null,
-    "mediaUrl": string | null,
-    "mediaType": string | null,
-    "createdAt": string             // original send's created_at
-  }
+  "id": string,
+  "senderId": string,
+  "senderName": string,
+  "senderAvatar": string | null,    // will become senderAvatarUrl after DM-TASK-H
+  "recipientId": string,
+  "content": string | null,
+  "mediaUrl": string | null,
+  "mediaType": string | null,
+  "createdAt": string               // original send's created_at
 }
-trigger: recipient accepts a pending request via the (planned) accept endpoint.
-notes: emitted to the original sender's user-scoped sockets so the sender's
-       inbox flips from "pending" to "active conversation" live. No push
-       notification fires on acceptance; the sender finds out via this WS
-       event (or via the next new_direct_message if the WS isn't connected).
-       [PLANNED — see architecture.md "Open gaps"]
+trigger: recipient accepts a pending request via POST /dm/requests/:requestId/accept.
+notes: emitted to every connected socket of the original sender (multi-device
+       safe) so the sender's inbox flips from "pending" to "active conversation"
+       live. Recipient learns of the materialized message via the HTTP response,
+       not via this event. No push notification fires on acceptance. Payload is
+       the materialized message — same flat shape as new_direct_message; the
+       sender derives peerId = recipientId from the payload.
 
 event: dm_summary_update
 payload:

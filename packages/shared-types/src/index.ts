@@ -81,6 +81,7 @@ export const ChatSocketEvents = {
   NEW_MESSAGE: 'new_message',
   NEW_DIRECT_MESSAGE: 'new_direct_message',
   DM_REQUEST_SENT: 'dm_request_sent',
+  DM_REQUEST_ACCEPTED: 'dm_request_accepted',
   PRESENCE_UPDATE: 'presence_update',
   GROUP_SUMMARY_UPDATE: 'group_summary_update',
   ERROR: 'error',
