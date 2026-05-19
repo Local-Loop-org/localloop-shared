@@ -13,7 +13,9 @@
 
 2026-05-18 — Direct-message flow specified end-to-end on `docs/direct-message-flow` (shared docs only; no code changes). `architecture.md` gains a full "Direct messages (Phase 4)" section covering the gate model (`dm_permission` + `dm_permission_exceptions` as the source of truth), the request-routing table, the three exception-write paths (implicit on direct delivery, explicit on accept-request, manual via profile UI), read-side openness, inbox vs requests separation, `dm_conversation_state` lifecycle + `archive`-independent-of-`unread`, the full WS contract (`send_dm` branching on result type, `new_direct_message`, `dm_request_sent`, `dm_request_accepted`, `watch_dm_inbox`, `dm_summary_update`, `mark_dm_read`), deactivated-peer handling, media-DM routing (when shipped), multi-device dedup, display-name JOIN-at-read, and self-DM defense-in-depth. ADR-006 records the architectural shift from 403-blocked-DMs to the request-routing model. `api-contracts.md` updated: `POST /dm/:userId` returns a discriminated union (`{type:'message'} | {type:'request', requestId}`); new `GET /dm` (conversations) and `GET /dm/requests` (pending) endpoints; WS section adds the new events flagged `[PLANNED]`. `prd.md` Section 4 rewritten (pt-BR) for the new model. `data-model.md` adds `dm_requests`, `dm_conversation_state`, `dm_permission_exceptions`, plus migration entries for `1717000000000-CreateDirectMessages` and `1717100000000-AddDmInboxSupport`. The spec exposes **12 code gaps** added under "Up next → Phase 4 → DM flow alignment".
 
-2026-05-16 — Phase 4 DM API slice shipped on `feat/dm-api-slice` (shared + API). **Shared**: `@localloop/shared-types@1.9.0` adds the `DirectMessage` interface and four DM socket events (`JOIN_DM`, `LEAVE_DM`, `SEND_DM`, `NEW_DIRECT_MESSAGE`). **API**: migration `1717000000000-CreateDirectMessages` adds the `direct_messages` table (functional `idx_dm_conversation` index on `LEAST/GREATEST(sender, recipient), created_at DESC` + `chk_dm_distinct_participants` check). New `DirectMessagesModule` provides `SendDirectMessageUseCase` (current code returns `403 DM_NOT_ALLOWED` on policy violation — superseded by ADR-006's request-routing model; see "Up next" for the alignment work) and `GetDirectMessageHistoryUseCase` (cursor pagination, no policy check on read). HTTP: `POST /dm/:userId` and `GET /dm/:userId?limit&before`. WebSocket: `ChatGateway` extended with `join_dm`/`leave_dm`/`send_dm`; rooms are `dm:{sortedA}:{sortedB}` per `architecture.md`. Verification: 36/36 suites, 223/223 tests (+22 new), lint + build clean.
+2026-05-16 — Phase 4 DM API slice shipped on `feat/dm-api-slice` (shared + API). **Shared**: `@localloop/shared-types@1.9.0` adds the `DirectMessage` interface and four DM socket events (`JOIN_DM`, `LEAVE_DM`, `SEND_DM`, `NEW_DIRECT_MESSAGE`). **API**: migration `1717000000000-CreateDirectMessages` adds the `direct_messages` table (functional `idx_dm_conversation` index on `LEAST/GREATEST(sender, recipient), created_at DESC` + `chk_dm_distinct_participants` check). New `DirectMessagesModule` provides `SendDirectMessageUseCase` (enforced `dm_permission` with `403 DM_NOT_ALLOWED` on violation in this slice; superseded by the request-routing model in commit `1ab8044`, see entry below) and `GetDirectMessageHistoryUseCase` (cursor pagination, no policy check on read). HTTP: `POST /dm/:userId` and `GET /dm/:userId?limit&before`. WebSocket: `ChatGateway` extended with `join_dm`/`leave_dm`/`send_dm`; rooms are `dm:{sortedA}:{sortedB}` per `architecture.md`. Verification: 36/36 suites, 223/223 tests (+22 new), lint + build clean.
+
+2026-05-17 — DM request-routing + inbox/requests endpoints shipped in commit `1ab8044 feat(dm): add inbox list + request endpoints with permission-based routing` (API; no shared-types or dedicated branch entry recorded earlier). **Schema**: migration `1717100000000-AddDmInboxSupport` adds `dm_requests` (UPSERT on `(sender_id, recipient_id)` — one pending row per pair), `dm_conversation_state` (per-user `last_read_at` + `archived`), and `dm_permission_exceptions` (durable allow-list). **Use cases**: `SendDirectMessageUseCase` rewritten — instead of throwing `403 DM_NOT_ALLOWED`, it now branches via `routeDm()` and returns a discriminated union (`{type:'message'} | {type:'request', requestId}`). Adds `hasPermissionException` short-circuit. New `ListDmConversationsUseCase` (inbox) and `ListDmRequestsUseCase` (pending) with cursor pagination. **HTTP**: `GET /dm` (inbox) and `GET /dm/requests` added. The spec layer (ADR-006 + architecture.md "Direct messages") landed later on 2026-05-18 to formalize the model and enumerate the remaining gaps.
 
 2026-05-16 — `MessagePermission` enum added to `@localloop/shared-types@1.8.0` on `feat/message-permission-enum` (shared only). First step of Phase 3 Slice 3. New values: `ADMIN_ONLY` (sender must be `OWNER` or `MODERATOR`), `MEMBERS_IN_RADIUS` (sender's geohash must overlap the group's anchor neighbors), `ALL_MEMBERS` (any active member). Pure contract change — no API or mobile wiring yet; the API migration (`send_text_perm` + `send_media_perm` on `groups`), `SendMessageUseCase` policy enforcement, and mobile composer gating + `CreateGroupScreen` selectors follow in their own slices once the package publishes. Verification: lint + build clean.
 
@@ -290,29 +292,86 @@ Slice 1 (`HomeScreen` + sectioned discovery + presentational bottom tabs) is imp
 - [x] Mobile push registration handling: Home asks once when `pushPermissionStatus = null`; Profile toggle owns later enable/disable changes.
 - [x] Group message push fan-out: best-effort Expo push for active offline group members, excluding sender and users connected to `group:{groupId}`.
 - [x] Migration: `direct_messages` table — `1717000000000-CreateDirectMessages` (functional `idx_dm_conversation` index + `chk_dm_distinct_participants` check).
-- [x] DMModule: `SendDirectMessageUseCase` (enforces `dm_permission` rules) and `GetDirectMessageHistoryUseCase`; `IGroupRepository.hasSharedActiveGroup` added for the `MEMBERS` policy check; `ChatGateway` extended with `join_dm`/`leave_dm`/`send_dm` and broadcasts `new_direct_message` into `dm:{sortedA}:{sortedB}`. HTTP: `GET`/`POST /dm/:userId`. Media DMs rejected in v1 (`MEDIA_DM_NOT_SUPPORTED`).
+- [x] Migration: `dm_requests`, `dm_conversation_state`, `dm_permission_exceptions` — `1717100000000-AddDmInboxSupport`.
+- [x] DMModule: `SendDirectMessageUseCase` + `GetDirectMessageHistoryUseCase` + `ListDmConversationsUseCase` + `ListDmRequestsUseCase`. Send returns the discriminated union (`{type:'message'} | {type:'request', requestId}`) via `routeDm` (`hasPermissionException` short-circuit, then `dm_permission` + `IGroupRepository.hasSharedActiveGroup` for `MEMBERS`); blocked sends UPSERT into `dm_requests`. `ChatGateway` extended with `join_dm`/`leave_dm`/`send_dm` and broadcasts into `dm:{sortedA}:{sortedB}`. HTTP: `GET`/`POST /dm/:userId`, `GET /dm`, `GET /dm/requests`. Media DMs rejected in v1 (`MEDIA_DM_NOT_SUPPORTED`).
+- [x] Spec: `architecture.md` "Direct messages (Phase 4)" + ADR-006 + the cross-doc consolidation (2026-05-18, `docs/direct-message-flow`).
 
 **DM flow alignment — close the spec-vs-code gaps**
 
-The 2026-05-18 doc consolidation (`docs/direct-message-flow`) enumerated 12 gaps in `architecture.md` → "Direct messages (Phase 4)" → "Open gaps". They are the canonical list; the slices below are a re-grouping for shipping order.
+The 2026-05-18 doc consolidation (`docs/direct-message-flow`) enumerated 12 gaps in `architecture.md` → "Direct messages (Phase 4)" → "Open gaps". The 12 gaps + archive endpoints are grouped into **8 tasks below by shared entity/file touchpoint** — work bundled here lands in one PR per task. Recommended order is roughly top-to-bottom (cheap unblockers first, breaking cross-repo change last). Track per sub-item with the checkboxes.
 
-- **API-1 · Send-time exception write.** `SendDirectMessageUseCase` writes `dm_permission_exceptions(sender, recipient)` on direct delivery, idempotently. No-op on the request path. **(Gap 1)**
-- **API-2 · Routing returns request, not 403.** Replace the `403 DM_NOT_ALLOWED` path with `dm_requests` upsert + `{ type: 'request', requestId }` response shape. **(Gap supersedes the 2026-05-16 use-case rule.)**
-- **API-3 · Accept-request use case + endpoint.** `POST /dm/requests/:id/accept` materializes the held content into `direct_messages` with the original `created_at`, writes `exception(recipient, sender)`, deletes the `dm_requests` row — all in one tx. Decline is a row delete only. **(Gap 2)**
-- **API-4 · Manual exception mgmt endpoints.** `GET /users/me/dm-exceptions`, `PUT /users/me/dm-exceptions/:peerId`, `DELETE /users/me/dm-exceptions/:peerId`. **(Gap 3)**
-- **API-5 · `ChatGateway.onSendDm` branches on result type.** `message` → broadcast `new_direct_message` to room; `request` → emit `dm_request_sent { requestId }` to sender's socket only. **(Gap 4)**
-- **API-6 · `dm_request_accepted` WS event.** Emitted to original sender's user-scoped sockets when the recipient accepts. Payload carries the materialized message. **(Gap 5)**
-- **API-7 · `watch_dm_inbox` / `unwatch_dm_inbox` / `dm_summary_update`.** User-scoped subscriptions; emit on new message in any of the caller's threads, on mark-read, on archive flip, on accept-request promotion. **(Gap 6)**
-- **API-8 · `mark_dm_read` WS event.** Upserts `dm_conversation_state(caller, peer).last_read_at = now()`; emits a fresh `dm_summary_update`. **(Gap 7)**
-- **API-9 · Deactivated-peer label swap.** `listInbox` SQL substitutes "Conta desativada" + nulls avatar when `users.is_active = false`. **(Gap 8)**
-- **API-10 · DM push fan-out.** Best-effort Expo push to recipient on new message (only). Skip if recipient has a socket joined to `dm:{sortedA}:{sortedB}` (server-side dedup with WS). No push on acceptance per design. **(Gaps 9 + 10)**
-- **API-11 · `dm_conversation_state` eager sender-side init.** On send, upsert sender's row with `last_read_at = now()`. Recipient's row stays lazy (created on first mark-read or first archive). **(Gap 11)**
-- **API-12 · DTO naming standardization.** Rename `DirectMessageRow.senderAvatar` → `senderAvatarUrl` across the API and shared `DirectMessage` type. Breaking; coordinate with mobile. **(Gap 12)**
-- **API-13 · `dm_conversation_state` archive endpoints.** `PUT /dm/:userId/archive`, `DELETE /dm/:userId/archive`. Out of the 12-gap list but required for the inbox archived chip.
+##### DM-TASK-A · Send-side enrichments
+**Touches:** `SendDirectMessageUseCase`, `dm_permission_exceptions`, `dm_conversation_state`. **Closes:** Gap 1, Gap 11.
+
+- [ ] Write `exception(sender, recipient)` on successful direct delivery (idempotent `INSERT … ON CONFLICT DO NOTHING`). No-op on the request path. **(Gap 1)**
+- [ ] Eager-init `dm_conversation_state(sender, recipient)` with `last_read_at = now()` on send (sender's row only — recipient's row stays lazy). **(Gap 11)**
+- [ ] Unit tests cover: direct-delivery writes both rows; request-route writes neither; idempotency on repeat sends.
+
+##### DM-TASK-B · `send_dm` gateway result-type branching
+**Touches:** `ChatGateway.onSendDm`. **Closes:** Gap 4.
+
+- [ ] Branch on `result.type` in `onSendDm`.
+- [ ] `message` → keep current `new_direct_message` broadcast into `dm:{sortedA}:{sortedB}`.
+- [ ] `request` → emit `dm_request_sent { requestId }` to sender's own socket only; no room broadcast.
+- [ ] Add `DM_REQUEST_SENT` constant to `@localloop/shared-types` chat-socket events (minor bump).
+- [ ] Gateway spec covers both branches + the no-leak property (room sockets never see a request payload).
+
+##### DM-TASK-C · Accept/decline request flow + WS feedback
+**Touches:** new `AcceptDmRequestUseCase` + `DeclineDmRequestUseCase`, `dm_requests`, `direct_messages`, `dm_permission_exceptions`, `ChatGateway`. **Closes:** Gap 2, Gap 5.
+
+- [ ] `AcceptDmRequestUseCase` — single transaction: insert `direct_messages` row from held `dm_requests.content` with original `created_at`, write `exception(recipient, sender)`, delete `dm_requests` row.
+- [ ] `DeclineDmRequestUseCase` — delete `dm_requests` row only.
+- [ ] `POST /dm/requests/:id/accept` and `POST /dm/requests/:id/decline` endpoints (recipient-only auth guard).
+- [ ] Emit `dm_request_accepted` to original sender's user-scoped sockets carrying the materialized message payload.
+- [ ] Add `DM_REQUEST_ACCEPTED` constant to `@localloop/shared-types` chat-socket events.
+- [ ] Tests: accept tx atomicity (rollback on any failure), decline idempotency, accept-then-accept returns 404 (row already gone), sender receives WS event.
+
+##### DM-TASK-D · Manual exception management endpoints
+**Touches:** new `*DmExceptionUseCase` trio + controller, `dm_permission_exceptions`. **Closes:** Gap 3.
+
+- [ ] `ListDmExceptionsUseCase` + `GET /users/me/dm-exceptions` (paginated peer list with display name + avatar).
+- [ ] `AddDmExceptionUseCase` + `PUT /users/me/dm-exceptions/:peerId` (idempotent INSERT; rejects self-pair).
+- [ ] `RemoveDmExceptionUseCase` + `DELETE /users/me/dm-exceptions/:peerId` (idempotent DELETE; returns 204 even if row absent).
+- [ ] Tests: add/remove idempotency, self-pair rejection, pagination correctness.
+
+##### DM-TASK-E · Inbox liveness + per-conversation state mutations
+**Touches:** `ChatGateway`, `dm_conversation_state`, new HTTP archive endpoints, all DM mutation paths. **Closes:** Gap 6, Gap 7, archive endpoints.
+
+- [ ] `mark_dm_read { peerId }` WS event + use case: upsert `dm_conversation_state(caller, peer).last_read_at = now()`.
+- [ ] `PUT /dm/:userId/archive` and `DELETE /dm/:userId/archive` endpoints: upsert `dm_conversation_state.archived`.
+- [ ] `watch_dm_inbox` / `unwatch_dm_inbox` WS events (user-scoped subscription, no payload).
+- [ ] Define `dm_summary_update` payload (mirror `group_summary_update`).
+- [ ] Emit `dm_summary_update` from every mutation path: new message delivered (Task A's send path), accept-request promotion (Task C), mark-read, archive/unarchive.
+- [ ] Add `MARK_DM_READ` / `WATCH_DM_INBOX` / `UNWATCH_DM_INBOX` / `DM_SUMMARY_UPDATE` constants to `@localloop/shared-types`.
+- [ ] Tests: mark-read clears `unreadCount` on the next emit; archive does NOT clear unread; subscription is user-scoped (no cross-user leak).
+
+##### DM-TASK-F · DM push fan-out + WS dedup
+**Touches:** `ChatGateway`, notifications module, push provider port. **Closes:** Gap 9, Gap 10.
+
+- [ ] After successful direct delivery in `onSendDm`, fire best-effort Expo push to recipient's enabled devices.
+- [ ] Skip the push if recipient has any socket joined to `dm:{sortedA}:{sortedB}` (server-side WS dedup, mirrors group fan-out's skip rule).
+- [ ] Do NOT fire push on acceptance (per design — sender gets `dm_request_accepted` WS event instead).
+- [ ] Payload carries `peerId` for mobile deep-link routing to `DmChatScreen`.
+- [ ] Tests: push fires when recipient offline; skipped when in the dm room; not fired on accept.
+
+##### DM-TASK-G · Deactivated-peer placeholder
+**Touches:** `listInbox` SQL, possibly `findByIdWithSender` and other read paths. **Closes:** Gap 8.
+
+- [ ] `listInbox` SQL substitutes `peer_name = 'Conta desativada'` and `peer_avatar_url = NULL` when joined `users.is_active = false`.
+- [ ] Audit other read endpoints (`GET /dm/:userId`, `GET /dm/requests`) for the same substitution; apply consistently.
+- [ ] Tests: deactivated peer still appears in inbox with placeholder; messages still readable.
+
+##### DM-TASK-H · DTO naming standardization (breaking, cross-repo)
+**Touches:** `@localloop/shared-types` `DirectMessage`, API DTOs, mobile types. **Closes:** Gap 12.
+
+- [ ] Rename `DirectMessageRow.senderAvatar` → `senderAvatarUrl` in API.
+- [ ] Update `@localloop/shared-types` `DirectMessage.senderAvatarUrl` (minor or major bump — major if any mobile code already consumes the field).
+- [ ] Coordinate with mobile branch consuming the same shape (probably `feat/inbox-*`).
+- [ ] Land all three repos in lockstep.
 
 **Inbox + DM chat flow — remaining slices**
 
-The mobile InboxScreen (I2 — search + chips: Todas / Não lidas / Solicitações / Arquivadas) is implemented on `feat/inbox-i2-search-chips` with mocked data, the existing `SearchInput` + `FilterChip`, the user `Avatar`, and a new shared `ConversationRow` primitive reused by `MyGroupRow`. The slices below wire it to a real backend and add the matching DM chat experience. **API-1 through API-13 are prerequisites for several of the slices below — close them first or interleave deliberately.**
+The mobile InboxScreen (I2 — search + chips: Todas / Não lidas / Solicitações / Arquivadas) is implemented on `feat/inbox-i2-search-chips` with mocked data, the existing `SearchInput` + `FilterChip`, the user `Avatar`, and a new shared `ConversationRow` primitive reused by `MyGroupRow`. The slices below wire it to a real backend and add the matching DM chat experience. **DM-TASK-A through DM-TASK-H are prerequisites for several of the slices below — close them first or interleave deliberately.**
 
 #### S1 · API: inbox-list + request endpoints
 Add (or confirm) the REST surface the InboxScreen needs once the mocks come out: paginated `GET /dm` conversations list returning peer summary, last message preview, unread count, archived flag; archive/unarchive mutations; mark-read endpoint; and the DM request flow (list/approve/ignore) if the policy can ever create a pending request instead of a thread message. New use cases follow Clean Architecture, unit + integration tests as usual.
