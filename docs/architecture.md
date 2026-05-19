@@ -245,10 +245,10 @@ These three write paths grandfather active conversations naturally: both partici
 **Open gaps — the spec above is the intended contract; the code is not yet aligned on these points.** Track and close before each affected surface ships.
 
   1. **Implicit-add-on-direct-send is not implemented.** `SendDirectMessageUseCase` does not currently write to `dm_permission_exceptions` on successful direct delivery. Until added, abandoned threads accumulate one-sided imbalance that breaks on permission tightening.
-  2. **No accept/decline request endpoint.** Schema (`dm_requests`, `dm_permission_exceptions`) is in place; the use case + HTTP/WS surface are missing. Until built, the only way out of a `dm_requests` row is for the recipient to be ignored indefinitely.
+  2. ~~**No accept/decline request endpoint.**~~ **Closed (DM-TASK-C)**. `POST /dm/requests/:requestId/accept` materializes the held message into `direct_messages` (preserving the original `created_at`), writes `dm_permission_exceptions(recipient → sender)`, eager-inits `dm_conversation_state` for the sender, and deletes the `dm_requests` row — all in one transaction. `POST /dm/requests/:requestId/decline` deletes the `dm_requests` row (idempotent). Non-recipients receive 404 (existence hidden).
   3. **Manual exception add/revoke endpoints + profile UI** are not implemented.
   4. **WS `send_dm` broadcasts the use case result verbatim** — when routing returns a request, that shape is currently emitted as `new_direct_message`. The fix is to branch on `result.type` and emit `dm_request_sent` to the sender's socket instead.
-  5. **`dm_request_accepted` WS event** is not implemented.
+  5. ~~**`dm_request_accepted` WS event** is not implemented.~~ **Closed (DM-TASK-C)**. After the accept transaction commits, `ChatGateway.emitDmRequestAccepted(senderId, payload)` iterates connected sockets and emits `dm_request_accepted` to every socket of the original sender (multi-device safe). Recipient learns of the materialized message via the HTTP response.
   6. **`watch_dm_inbox` / `unwatch_dm_inbox` / `dm_summary_update` WS events** are not implemented.
   7. **`mark_dm_read` WS event** is not implemented.
   8. **Deactivated-peer placeholder substitution** (`peerName = "Conta desativada"`, avatar null) is not implemented in the inbox query — currently returns the deactivated user's stale display name.
