@@ -138,8 +138,8 @@
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PK | |
-| sender_id | UUID | FK → users.id, NOT NULL | |
-| recipient_id | UUID | FK → users.id, NOT NULL | |
+| sender_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | |
+| recipient_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | |
 | content | TEXT | nullable | |
 | media_url | TEXT | nullable | media DMs are reserved for a future slice; rejected at the use case in v1 |
 | media_type | media_type_enum | nullable | as above |
@@ -150,6 +150,53 @@
 
 **Indexes:**
 - `idx_dm_conversation` on `(LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id), created_at DESC)` — functional index, serves both directions of the conversation in a single sort.
+
+---
+
+### dm_requests
+
+Pending direct-message sends that the recipient's `dm_permission` (or lack of a shared group) blocked from landing in `direct_messages`. See `architecture.md → "Direct messages → Send-time routing"`.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | Used as the requestId returned from POST /dm/:userId |
+| sender_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | |
+| recipient_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | |
+| content | TEXT | nullable | The original send payload |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+**Check constraint:** `chk_dm_req_distinct`: `sender_id <> recipient_id`.
+
+**Unique constraint:** `(sender_id, recipient_id)` — at most one pending request per direction.
+
+---
+
+### dm_conversation_state
+
+Per-user, per-peer state about a DM thread. Caller-scoped: row `(A, B)` is A's state about the conversation with B.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| user_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | Owner of this state row |
+| peer_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | The other participant |
+| last_read_at | TIMESTAMPTZ | nullable | Read watermark; drives unread counts in GET /dm |
+| archived | BOOLEAN | NOT NULL, DEFAULT false | Caller hid the thread from the inbox |
+
+**Primary key:** `(user_id, peer_id)`.
+
+---
+
+### dm_permission_exceptions
+
+Durable allow-list, one row per acceptance. Once a row exists, `SendDirectMessageUseCase` skips the policy check for that pair — even if `dm_permission` later flips to `nobody`. Exceptions are one-directional: `(A, B)` means A allows B to DM A.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| user_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | The recipient who granted the exception |
+| allowed_peer_id | UUID | FK → users.id, NOT NULL, ON DELETE CASCADE | The sender now allowed |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+**Primary key:** `(user_id, allowed_peer_id)`.
 
 ---
 
@@ -222,3 +269,5 @@ See `architecture.md` for full rationale. Summary: geohash for privacy (no coord
 |-----------|-------------|------|
 | 1710770000000-InitialSetup | PostGIS, all enums, users table | 2024-03-18 |
 | 1716000000000-AddPushNotifications | push permission status + push_devices registry | 2026-05-13 |
+| 1717000000000-CreateDirectMessages | direct_messages table + idx_dm_conversation functional index | 2026-05-16 |
+| 1717100000000-AddDmInboxSupport | dm_requests, dm_conversation_state, dm_permission_exceptions | 2026-05-17 |
