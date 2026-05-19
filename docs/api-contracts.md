@@ -683,6 +683,69 @@ Notes: client uploads directly to Supabase, then sends the storageKey via WebSoc
 
 ## Direct Messages
 
+> See architecture.md → "Direct messages (Phase 4)" for the send-routing rules,
+> the permission-exception model, and the read-side openness contract that
+> these endpoints implement.
+
+### List conversations (inbox)
+
+```
+GET /dm
+Auth: required
+Query: ?limit=20&cursor=<opaque>     // limit 1..50, default 20
+
+Response 200:
+{
+  "data": [
+    {
+      "peerId": string,
+      "peerName": string,
+      "peerAvatarUrl": string | null,
+      "lastMessage": {
+        "content": string | null,
+        "senderName": string,
+        "createdAt": string             // ISO 8601
+      },
+      "unreadCount": number,
+      "archived": boolean
+    }
+  ],
+  "next_cursor": string | null         // opaque (lastMessageAt + peerId)
+}
+
+notes: one row per peer with at least one delivered message. Ordered by
+       lastMessageAt DESC. unreadCount and archived come from
+       dm_conversation_state and are caller-scoped. Pending requests are
+       NOT included here — see GET /dm/requests.
+```
+
+### List pending requests
+
+```
+GET /dm/requests
+Auth: required
+Query: ?limit=20&cursor=<opaque>     // limit 1..50, default 20
+
+Response 200:
+{
+  "data": [
+    {
+      "id": string,                    // dm_requests.id; pass to accept/decline
+      "senderId": string,
+      "senderName": string,
+      "senderAvatarUrl": string | null,
+      "content": string | null,
+      "createdAt": string
+    }
+  ],
+  "next_cursor": string | null         // opaque (createdAt + requestId)
+}
+
+notes: requests addressed to the caller (i.e. caller is the recipient).
+       Sourced from dm_requests. Accept/decline endpoints are not yet
+       implemented — see architecture.md "Open gaps".
+```
+
 ### Get DM history
 
 ```
@@ -726,27 +789,37 @@ Body:
   "content": string   // 1..2000 chars
 }
 
-Response 201:
-{
-  "id": string,
-  "senderId": string,
-  "senderName": string,
-  "senderAvatar": string | null,
-  "recipientId": string,
-  "content": string | null,
-  "mediaUrl": string | null,
-  "mediaType": "image" | "video" | null,
-  "createdAt": string
-}
+Response 201 (discriminated union — branch on `type`):
 
-notes: media DMs are not supported in v1; mediaUrl / mediaType are always null.
+  // routing landed in the thread:
+  {
+    "type": "message",
+    "id": string,
+    "senderId": string,
+    "senderName": string,
+    "senderAvatar": string | null,
+    "recipientId": string,
+    "content": string | null,
+    "mediaUrl": string | null,
+    "mediaType": "image" | "video" | null,
+    "createdAt": string
+  }
+
+  // routing held the send as a pending request:
+  {
+    "type": "request",
+    "requestId": string                // dm_requests.id
+  }
+
+notes: see architecture.md "Direct messages → Send-time routing" for the
+       full rule table. There is no DM_NOT_ALLOWED 403 — a blocked send
+       becomes a request instead. Media DMs are not supported in v1;
+       mediaUrl / mediaType are always null.
 
 Errors:
   400 CANNOT_DM_SELF             — :userId equals the caller
   400 EMPTY_MESSAGE              — trimmed content is empty
   400 MEDIA_DM_NOT_SUPPORTED     — body included media fields (reserved for v2)
-  403 DM_NOT_ALLOWED             — recipient's dm_permission blocks this sender
-                                   (NOBODY, or MEMBERS with no shared active group)
   404 RECIPIENT_NOT_FOUND        — user missing or inactive
 ```
 
@@ -811,9 +884,29 @@ payload:
   "recipientId": string,
   "content": string | null
 }
-notes: same policy as POST /dm/:userId. On success the server broadcasts
-       new_direct_message into the sorted-pair room; on failure the sender
-       receives an ERROR event with the use case's error code.
+notes: same routing as POST /dm/:userId. Server branches on the use case
+       result.type:
+         - 'message' → broadcast as new_direct_message into dm:{sortedA}:{sortedB}.
+         - 'request' → emit dm_request_sent { requestId } to the sender's
+           socket only (no room broadcast).
+       On failure the sender receives an ERROR event with the use case's error
+       code.
+
+event: mark_dm_read
+payload: { "peerId": string }
+notes: advances the caller's persisted dm_conversation_state.last_read_at and
+       emits a fresh dm_summary_update to the caller's user-scoped sockets.
+       Mirrors mark_group_read. [PLANNED — see architecture.md "Open gaps"]
+
+event: watch_dm_inbox
+payload: {}
+notes: subscribes the caller to dm_summary_update events for every conversation
+       in their inbox. No per-peer subscription needed. Mirrors
+       watch_group_summaries but is user-scoped, so no payload.
+       [PLANNED — see architecture.md "Open gaps"]
+
+event: unwatch_dm_inbox
+payload: {}
 ```
 
 ### Server → Client
@@ -855,15 +948,69 @@ payload:
   "id": string,
   "senderId": string,
   "senderName": string,
-  "senderAvatar": string | null,
+  "senderAvatarUrl": string | null,  // standardizing; currently `senderAvatar`
   "recipientId": string,
   "content": string | null,
   "mediaUrl": string | null,
   "mediaType": string | null,
   "createdAt": string
 }
-trigger: a direct message is sent successfully via send_dm or POST /dm/:userId.
-notes: only delivered to sockets that have joined the dm:{a}:{b} room.
+trigger: send_dm or POST /dm/:userId resolved to a delivered message
+         (result.type === 'message'). Acceptance of a pending request also
+         emits this event into the dm room as part of the materialization.
+notes: only delivered to sockets joined to dm:{sortedA}:{sortedB}. Server is
+       responsible for never emitting a non-message payload on this channel;
+       see architecture.md "Open gaps" for the current send_dm code that does
+       not yet branch.
+
+event: dm_request_sent
+payload: { "requestId": string }
+trigger: send_dm or POST /dm/:userId resolved to a request
+         (result.type === 'request'). Sender-only ack — not broadcast.
+notes: lets the sender's UI show a pending-request state. [PLANNED — see
+       architecture.md "Open gaps"]
+
+event: dm_request_accepted
+payload:
+{
+  "peerId": string,                // the accepting user (was the recipient)
+  "message": {                     // the materialized DM
+    "id": string,
+    "senderId": string,
+    "senderName": string,
+    "senderAvatarUrl": string | null,
+    "recipientId": string,
+    "content": string | null,
+    "mediaUrl": string | null,
+    "mediaType": string | null,
+    "createdAt": string             // original send's created_at
+  }
+}
+trigger: recipient accepts a pending request via the (planned) accept endpoint.
+notes: emitted to the original sender's user-scoped sockets so the sender's
+       inbox flips from "pending" to "active conversation" live. No push
+       notification fires on acceptance; the sender finds out via this WS
+       event (or via the next new_direct_message if the WS isn't connected).
+       [PLANNED — see architecture.md "Open gaps"]
+
+event: dm_summary_update
+payload:
+{
+  "peerId": string,
+  "lastMessage": {
+    "content": string | null,
+    "senderName": string,
+    "createdAt": string
+  } | null,
+  "lastReadAt": string | null,
+  "unreadCount": number,
+  "archived": boolean
+}
+trigger: emitted after watch_dm_inbox, mark_dm_read, archive/unarchive, and
+         on every new message in any of the caller's threads.
+notes: payload is caller-specific; unreadCount excludes messages sent by the
+       caller. Mirrors group_summary_update. [PLANNED — see architecture.md
+       "Open gaps"]
 
 event: group_summary_update
 payload:
@@ -883,5 +1030,8 @@ notes: payload is user-specific; unreadCount excludes messages sent by the recip
 
 event: error
 payload: { "code": string, "message": string }
-trigger: invalid action (e.g. DM to user with dm_permission = 'nobody')
+trigger: invalid action (e.g. self-DM, empty content, recipient not found).
+notes: DMs blocked by dm_permission do not produce an ERROR — they become a
+       pending request. See architecture.md "Direct messages → Send-time
+       routing".
 ```

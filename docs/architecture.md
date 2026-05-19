@@ -164,6 +164,99 @@ Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicate
 - Socket.IO with `@socket.io/redis-adapter` for multi-instance pub-sub.
 - Room naming: `group:{groupId}` and `dm:{userId1}:{userId2}` (sorted IDs).
 
+### Direct messages (Phase 4)
+
+DMs have a two-track delivery model. A send either lands in the thread immediately ("direct") or is held as a pending **request** the recipient can accept later. The routing decision is made by `SendDirectMessageUseCase` against the **receiver's** gate; the sender's own `dm_permission` is irrelevant to outbound sends. ADR-006 records the why.
+
+**The gate.** `dm_permission` and `dm_permission_exceptions` together define who can DM a given user. The enum values mean:
+
+| `dm_permission` | Who can send to this user, in one line                                           |
+|-----------------|----------------------------------------------------------------------------------|
+| `everyone`      | Anyone. Exceptions are moot for inbound (but still matter if the user tightens). |
+| `members`       | Anyone sharing an active group with the user, **plus** anyone on their exception list. |
+| `nobody`        | Only people on the user's exception list. Read as "nobody EXCEPT exceptions". It is the default-deny floor, not an absolute block. |
+
+`dm_permission_exceptions(user_id, allowed_peer_id)` means "user_id allows allowed_peer_id to send DMs to user_id, bypassing dm_permission". Rows are one-directional.
+
+**Routing table** (receiver's gate evaluated in order; A is sender, B is recipient):
+
+| Condition                                                        | Outcome   |
+|------------------------------------------------------------------|-----------|
+| A row exists in `dm_permission_exceptions(B, A)`                 | direct    |
+| `B.dm_permission = 'everyone'`                                   | direct    |
+| `B.dm_permission = 'members'` and A and B share an active group  | direct    |
+| `B.dm_permission = 'members'` and no shared active group         | request   |
+| `B.dm_permission = 'nobody'`                                     | request   |
+
+There is no `DM_NOT_ALLOWED` 403 — a blocked send becomes a request. The HTTP response is a discriminated union: `{ type: 'message', ... }` or `{ type: 'request', requestId }`. When the route is `request`, the held send is upserted into `dm_requests` on `(sender_id, recipient_id)` — only the latest content survives per pending pair.
+
+**Exception lifecycle.** Three write paths and one explicit remove path:
+
+  - **Implicit on direct delivery.** When A's send to B routes to `direct`, the use case writes `exception(A, B)` (idempotent). Rationale: sending signals A consents to B replying, so B's reply should never be blocked by A's gate. Implicit-add does **not** fire when the route is `request` — until the conversation actually starts, no consent is recorded.
+  - **Explicit on accept-request.** When B accepts A's pending request, the accept-request use case (1) inserts a `direct_messages` row from the held `dm_requests.content`, (2) writes `exception(B, A)`, (3) deletes the `dm_requests` row — all in one transaction. The materialized message uses the original send's `created_at` so the timing stays truthful.
+  - **Manual add.** The profile-screen permissions section lets a user proactively add a peer to their exception list (a manual grant) without that peer needing to DM first.
+  - **Manual revoke.** Same UI lets a user remove a peer. Future sends from the revoked peer go through `dm_permission` again. Existing thread history is unaffected — read-side has no policy check.
+
+These three write paths grandfather active conversations naturally: both participants end up with an exception once each has sent at least one delivered message. A user tightening `dm_permission` to `nobody` will therefore not silently break threads where both sides have actively participated. One-sided/abandoned threads (sender wrote, recipient never replied) are **not** grandfathered — by design, since the recipient never signalled engagement. No historical backfill is planned: the implicit-add rule is forward-only.
+
+**Read-side openness.** `GET /dm/:userId` performs **no policy check**. Once a thread exists (at least one `direct_messages` row), either participant can browse the full history. Changing `dm_permission` to `nobody` or revoking an exception blocks new sends from non-excepted peers but does not retroactively hide what was already delivered.
+
+**Inbox structure.** Two cursor-paginated lists, mutually exclusive at the pair level:
+
+  - `GET /dm` — **conversations**: one row per peer with at least one delivered `direct_messages` row. Backed by `direct_messages`; per-user `last_read_at` / `archived` come from `dm_conversation_state`.
+  - `GET /dm/requests` — **pending requests** addressed to the caller, sourced from `dm_requests`.
+  - A peer is never in both lists at once. Acceptance promotes a request into a conversation atomically.
+
+**Per-user conversation state (`dm_conversation_state`).** Row `(user_id, peer_id)` is the user's caller-scoped state about the thread with `peer_id`:
+
+  - `last_read_at` drives `unreadCount` in `/dm`. The query excludes the caller's own sends and uses `COALESCE(last_read_at, '-infinity')`, so an unread row defaults to "everything from the peer is unread".
+  - `archived` is a hide-from-main-inbox flag. **It is independent of read state** — an archived thread still accumulates `unreadCount` when the peer sends, so a future "Archived (N)" filter chip can resurface re-engagement.
+  - **Lifecycle (intended)**: the **sender's** row is created on send with `last_read_at = now()` (so the sender never sees their own sends as unread). The **recipient's** row is created on first `mark_dm_read` or on first `archive`. Until then, the recipient's row absence is read as `last_read_at = -infinity` and unread is honestly N.
+  - **Mark-read**: WS `mark_dm_read { peerId }` mirrors `mark_group_read`. Side effect: upserts `last_read_at = now()` and emits `dm_summary_update` to the caller's user-scoped sockets so the badge clears across devices.
+
+**Inbox liveness.** WS subscriptions mirror the group-summary pattern:
+
+  - `watch_dm_inbox` / `unwatch_dm_inbox` — caller subscribes to user-scoped inbox events. No payload — the inbox is implicitly the caller's.
+  - `dm_summary_update` — emitted per affected conversation when a new message lands, when the caller marks-read or archives, or when an accepted request promotes a request into a thread. Payload mirrors `group_summary_update`: `peerId`, last-message preview, `lastReadAt`, `unreadCount`, `archived`.
+
+**Real-time message delivery.** `ChatGateway` exposes `join_dm` / `leave_dm` / `send_dm`. Joining is per pair, requires the caller (gateway rejects self-pair), and is not gated by `dm_permission` — the dm room exists regardless of policy. `send_dm` invokes `SendDirectMessageUseCase` and branches on the result:
+
+  - `result.type === 'message'` → broadcast as `new_direct_message` into `dm:{sortedA}:{sortedB}`. The payload is always the message shape; clients never need to discriminate on `new_direct_message`.
+  - `result.type === 'request'` → emit `dm_request_sent { requestId }` to the **sender's own socket** only (no room broadcast). Acts as an acknowledgement and lets the sender's UI flip to "pending request" state.
+
+**Acceptance feedback.** When B accepts A's request, the server emits `dm_request_accepted` to A's user-scoped sockets carrying the materialized message payload. A's mobile updates the inbox + lifts any pending UI state. No DM push notification is fired on acceptance — only on subsequent new messages.
+
+**Deactivated peers.** When a peer's `users.is_active = false`:
+
+  - Existing threads stay visible in the inbox. The API substitutes a placeholder display name ("Conta desativada") and nulls the avatar so renderers don't leak stale identity.
+  - New sends to a deactivated user return `404 RECIPIENT_NOT_FOUND` (already enforced — `SendDirectMessageUseCase` rejects on `!recipient.isActive`).
+  - Hard-deleting a user (LGPD) cascades both `sender_id` and `recipient_id` FKs in `direct_messages` and removes their side of every thread. The peer loses the conversation too — an acceptable tradeoff for data erasure.
+
+**Media DMs.** Rejected in v1 with `MEDIA_DM_NOT_SUPPORTED`. When media ships (depends on Phase 3 Slice 2 media upload), the routing model applies uniformly: a media-only DM to a blocked recipient becomes a request whose `content` is the media reference. Acceptance materializes both the media reference and any caption.
+
+**Self-DM defense in depth.** Rejected at three layers: use case throws `CANNOT_DM_SELF`, DB enforces `chk_dm_distinct_participants` and `chk_dm_req_distinct`, gateway `join_dm` returns `{ok: false}` on self-pair. Each layer catches a different class of bug.
+
+**Multi-device dedup.** When the DM push fan-out ships, the server will skip the push if the recipient currently has a socket joined to `dm:{sortedA}:{sortedB}` (mirrors group fan-out's "skip users connected to `group:{groupId}`" rule). Clients dedup `new_direct_message` WS payloads + any duplicate push payloads by message `id` as a fallback.
+
+**Display names.** All endpoints (`/dm`, `/dm/requests`, `/dm/:userId`, WS payloads) JOIN `users.display_name` at query time — no snapshotting. A peer rename is reflected across history immediately on next read. The same applies to `users.avatar_url`.
+
+**Privacy.** DM payloads expose `peerName` / `senderName` and avatar URLs. User coordinates and geohash are never returned — DMs are identity-revealing but not location-revealing. The user-to-user distance rule (see "Location privacy") applies: distance from one DM participant to another is never computed or exposed.
+
+**Open gaps — the spec above is the intended contract; the code is not yet aligned on these points.** Track and close before each affected surface ships.
+
+  1. **Implicit-add-on-direct-send is not implemented.** `SendDirectMessageUseCase` does not currently write to `dm_permission_exceptions` on successful direct delivery. Until added, abandoned threads accumulate one-sided imbalance that breaks on permission tightening.
+  2. **No accept/decline request endpoint.** Schema (`dm_requests`, `dm_permission_exceptions`) is in place; the use case + HTTP/WS surface are missing. Until built, the only way out of a `dm_requests` row is for the recipient to be ignored indefinitely.
+  3. **Manual exception add/revoke endpoints + profile UI** are not implemented.
+  4. **WS `send_dm` broadcasts the use case result verbatim** — when routing returns a request, that shape is currently emitted as `new_direct_message`. The fix is to branch on `result.type` and emit `dm_request_sent` to the sender's socket instead.
+  5. **`dm_request_accepted` WS event** is not implemented.
+  6. **`watch_dm_inbox` / `unwatch_dm_inbox` / `dm_summary_update` WS events** are not implemented.
+  7. **`mark_dm_read` WS event** is not implemented.
+  8. **Deactivated-peer placeholder substitution** (`peerName = "Conta desativada"`, avatar null) is not implemented in the inbox query — currently returns the deactivated user's stale display name.
+  9. **DM push fan-out** is not implemented (planned only for new messages, not for acceptance).
+  10. **Server-side push-vs-WS dedup** (skip push when recipient has socket in `dm:{a}:{b}`) is not implemented because (9) is not implemented.
+  11. **`dm_conversation_state` eager-init on the sender side** is not implemented. Current code is purely lazy; the sender's "own sends not unread" property is currently enforced by the `sender_id != caller` SQL filter, which works but means the sender's `last_read_at` is never advanced by their own activity.
+  12. **DTO naming inconsistency**: `DirectMessageRow.senderAvatar` vs `DmRequestDto.senderAvatarUrl` vs `DmConversationDto.peerAvatarUrl`. Standardize on `…AvatarUrl`. Breaking wire change; coordinate with mobile.
+
 ### Push notifications (Phase 4)
 
 - Expo Push is the first provider, but API code depends on `IPushNotificationProvider` and stores provider-neutral device rows (`provider`, `platform`, `token`, `installationId`).
@@ -194,3 +287,4 @@ Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicate
 | ADR-003 | Expo for React Native mobile | Accepted | 2024-03-18 |
 | ADR-004 | Supabase for auth and storage | Accepted | 2024-03-18 |
 | ADR-005 | Geohash precision 6 for location privacy | Accepted | 2024-04-06 |
+| ADR-006 | DM request routing — exceptions as a first-class concept | Accepted | 2026-05-18 |

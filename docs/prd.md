@@ -74,11 +74,48 @@ LocalLoop é um aplicativo mobile de mensagens baseado em proximidade geográfic
   para evitar triangulação de posição.
 
 ### Controle de DMs
+
+O destinatário controla quem pode enviar DMs para ele com `dm_permission` +
+uma lista de exceções por pessoa. Toda DM resolve para uma de duas saídas:
+**entrega direta** na thread ou **solicitação pendente** que o destinatário
+pode aceitar depois. Não existe recusa silenciosa nem erro 403 por política
+— o envio bloqueado vira uma solicitação.
+
 ```
-dm_permission = 'nobody'   → rejeita com 403
-dm_permission = 'members'  → aceita apenas se há grupo em comum
-dm_permission = 'everyone' → aceita de qualquer usuário autenticado
+Avaliado nessa ordem contra o destinatário (B), para um envio de A → B:
+
+  exceção(B, A) existe                          → entrega direta
+  B.dm_permission = 'everyone'                  → entrega direta
+  B.dm_permission = 'members' e grupo em comum  → entrega direta
+  B.dm_permission = 'members' e sem grupo       → solicitação
+  B.dm_permission = 'nobody'                    → solicitação
 ```
+
+`nobody` significa "ninguém EXCETO exceções" — é o piso de privacidade, não
+um bloqueio absoluto. Bloqueio por pessoa (block) é item de Fase 5.
+
+**Lista de exceções (`dm_permission_exceptions`).** Uma exceção `(B, A)`
+significa "B autoriza A a enviar DMs para B". Exceções são unidirecionais e
+preenchidas por três caminhos:
+
+  - **Implícito**: quando A consegue entregar uma mensagem direta para B, o
+    sistema grava `exceção(A, B)` — A está sinalizando que aceita a resposta
+    de B. Não dispara quando o envio vira solicitação.
+  - **Explícito**: ao aceitar uma solicitação pendente, B grava
+    `exceção(B, A)` (e o conteúdo pendente vira uma mensagem real).
+  - **Manual**: a tela de perfil → seção de permissões permite adicionar ou
+    remover exceções a qualquer momento.
+
+**Remover uma exceção** apenas bloqueia envios futuros daquele contato —
+não esconde o histórico já entregue.
+
+**Leitura de thread existente:** uma vez que ao menos uma mensagem foi
+entregue, qualquer um dos dois participantes pode ler o histórico completo
+(`GET /dm/:userId` não faz checagem de política).
+
+Para a especificação completa do roteamento, lifecycle de exceções, eventos
+WebSocket e gaps conhecidos no código, ver `architecture.md → "Direct
+messages (Phase 4)"` e ADR-006.
 
 ### Ingresso em Grupos
 ```
