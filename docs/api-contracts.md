@@ -875,6 +875,73 @@ Errors:
 
 ---
 
+## DM exceptions
+
+The `dm_permission_exceptions` table is the source of truth for "peer X may DM user Y directly even if Y's `dm_permission` would otherwise route the message into `dm_requests`." Rows are written implicitly by `POST /dm/:userId` (sender → recipient on direct delivery, DM-TASK-A) and `POST /dm/requests/:requestId/accept` (recipient → sender on acceptance, DM-TASK-C). The endpoints below let a user manage their own list manually.
+
+### List exceptions
+
+```
+GET /users/me/dm-exceptions
+Auth: required
+Query: ?limit=20&cursor=<opaque>     // limit 1..50, default 20
+
+Response 200:
+{
+  "data": [
+    {
+      "peerId": string,
+      "displayName": string,
+      "avatarUrl": string | null,
+      "createdAt": string             // ISO 8601, when the exception was created
+    }
+  ],
+  "next_cursor": string | null         // opaque (createdAt + peerId)
+}
+
+notes: caller-scoped. Inactive peers are filtered out — the row remains in
+       the table but is hidden from this listing (DM-TASK-G adds placeholder
+       substitution for inbox/request read paths that must keep deactivated
+       peers visible).
+```
+
+### Add an exception (pre-grant)
+
+```
+PUT /users/me/dm-exceptions/:peerId
+Auth: required
+
+Response 204 (no body)
+
+notes: idempotent UPSERT — calling with the same peerId twice succeeds both
+       times. After the row exists, DMs from peerId to the caller will be
+       routed directly regardless of the caller's `dm_permission` setting.
+
+Errors:
+  400 CANNOT_EXCEPTION_SELF      — peerId equals the caller
+  404 PEER_NOT_FOUND             — user missing or inactive
+```
+
+### Remove an exception (revoke)
+
+```
+DELETE /users/me/dm-exceptions/:peerId
+Auth: required
+
+Response 204 (no body)
+
+notes: idempotent DELETE — returns 204 even when no row matched (e.g. the
+       exception was already revoked, or never existed). Removing an
+       exception does NOT block future DMs on its own — it just restores
+       normal `dm_permission` routing. After revoke, the next DM from peerId
+       to caller falls under the caller's current `dm_permission` rules.
+
+Errors:
+  400 CANNOT_EXCEPTION_SELF      — peerId equals the caller
+```
+
+---
+
 ## WebSocket Events
 
 **Connection:** `wss://<host>/chat`
