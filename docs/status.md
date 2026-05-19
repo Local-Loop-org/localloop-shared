@@ -414,6 +414,8 @@ Maestro flows: send a DM, receive a DM in real time, approve a DM request, tap a
 
 **Polish (Phase 5)** — block/unblock peer, report user, edit/delete own DM, media in DMs (depends on Phase 3 Slice 2 media upload), empty-state copy when the user has zero conversations and zero requests.
 
+- [ ] API-backed user listing/search for Profile DM exceptions: needed before mobile can add new manual exceptions, because the app currently has no safe way to discover selectable peers beyond existing inbox/request data.
+
 **Open decisions**
 
 - ~~Inbox-list shape~~ — **Resolved 2026-05-18**: derived on the fly via `direct_messages` + `dm_conversation_state` (`listInbox` uses a `DISTINCT ON` CTE; see `direct-message.typeorm.repository.ts`). Re-evaluate if/when DM volume per user makes this query slow.
