@@ -940,6 +940,51 @@ Errors:
   400 CANNOT_EXCEPTION_SELF      — peerId equals the caller
 ```
 
+### List exception candidates
+
+```
+GET /users/me/dm-exception-candidates
+Auth: required
+Query: ?limit=20&cursor=<opaque>&q=<string>
+       // limit 1..50, default 20
+       // cursor: opaque base64url JSON, omit on first page
+       // q: optional case-insensitive substring on display_name; server
+       //    trims and treats empty/whitespace-only as "no search";
+       //    max length 100
+
+Response 200:
+{
+  "data": [
+    {
+      "userId": string,
+      "displayName": string,
+      "avatarUrl": string | null
+    }
+  ],
+  "next_cursor": string | null         // opaque (lower(display_name) + userId)
+}
+
+notes: returns active users `u` such that:
+         1. u.is_active = true
+         2. u.id != caller.id
+         3. there exists a group g where both caller and u are rows in
+            `group_members` with status = 'active' (banned/pending excluded
+            on either side)
+         4. no row exists in `dm_permission_exceptions` with
+            (user_id = caller.id, allowed_peer_id = u.id) — already-added
+            peers are hidden so the picker only shows addable candidates
+         5. when `q` is provided after trimming,
+            lower(u.display_name) LIKE '%' || lower(q) || '%'
+       Ordering: lower(display_name) ASC, u.id ASC (stable secondary key).
+       Cursor encodes { displayName, userId }; clients MUST reset the
+       cursor when `q` changes. Empty result is { data: [], next_cursor: null }
+       — no 404.
+
+Errors:
+  400 BAD_REQUEST                — limit out of range, q over max length,
+                                   or malformed cursor
+```
+
 ---
 
 ## WebSocket Events
