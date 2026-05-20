@@ -168,6 +168,17 @@ export interface DmSummaryUpdate {
   archived: boolean;
 }
 
+export interface DmExceptionCandidate {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+export interface ListDmExceptionCandidatesResponse {
+  data: DmExceptionCandidate[];
+  next_cursor: string | null;
+}
+
 export interface UserSummary {
   id: string;
   displayName: string;
