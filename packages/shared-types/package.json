@@ -1,6 +1,6 @@
 {
   "name": "@localloop/shared-types",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "description": "Shared TypeScript enums and response types for LocalLoop",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
