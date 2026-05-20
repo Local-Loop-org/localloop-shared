@@ -31,15 +31,11 @@ jobs:
       - name: Build packages
         run: npm run build
 
-      - name: Configure npm auth
-        run: |
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "::error::NPM_TOKEN secret is not set. Add it in repo Settings → Secrets and variables → Actions."
-            exit 1
-          fi
-          npm config set --location=user "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Auth: GitHub OIDC + npm Trusted Publishers. No NPM_TOKEN needed —
+      # npm verifies the OIDC token against the Trusted Publisher config
+      # registered on each package's Settings page (publisher = GitHub
+      # Actions, repo = Local-Loop-org/localloop-shared, workflow =
+      # publish.yml). Requires `permissions.id-token: write` above.
 
       - name: Publish @localloop/shared-types
         working-directory: packages/shared-types
