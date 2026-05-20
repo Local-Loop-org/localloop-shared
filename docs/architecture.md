@@ -255,7 +255,7 @@ These three write paths grandfather active conversations naturally: both partici
   9. **DM push fan-out** is not implemented (planned only for new messages, not for acceptance).
   10. **Server-side push-vs-WS dedup** (skip push when recipient has socket in `dm:{a}:{b}`) is not implemented because (9) is not implemented.
   11. **`dm_conversation_state` eager-init on the sender side** is not implemented. Current code is purely lazy; the sender's "own sends not unread" property is currently enforced by the `sender_id != caller` SQL filter, which works but means the sender's `last_read_at` is never advanced by their own activity.
-  12. **DTO naming inconsistency**: `DirectMessageRow.senderAvatar` vs `DmRequestDto.senderAvatarUrl` vs `DmConversationDto.peerAvatarUrl`. Standardize on `…AvatarUrl`. Breaking wire change; coordinate with mobile.
+  12. ~~**DTO naming inconsistency**~~ **Closed (DM-TASK-H)**. `DirectMessage.senderAvatar` renamed to `senderAvatarUrl` (`@localloop/shared-types@2.0.0`). The rename extended to the group `Message` types for symmetry across the whole chat surface. All avatar-bearing DM/group payloads (HTTP + WS) now use the `…AvatarUrl` suffix uniformly.
 
 ### Push notifications (Phase 4)
 
