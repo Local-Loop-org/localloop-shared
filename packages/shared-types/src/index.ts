@@ -78,12 +78,16 @@ export const ChatSocketEvents = {
   JOIN_DM: 'join_dm',
   LEAVE_DM: 'leave_dm',
   SEND_DM: 'send_dm',
+  WATCH_DM_INBOX: 'watch_dm_inbox',
+  UNWATCH_DM_INBOX: 'unwatch_dm_inbox',
+  MARK_DM_READ: 'mark_dm_read',
   NEW_MESSAGE: 'new_message',
   NEW_DIRECT_MESSAGE: 'new_direct_message',
   DM_REQUEST_SENT: 'dm_request_sent',
   DM_REQUEST_ACCEPTED: 'dm_request_accepted',
   PRESENCE_UPDATE: 'presence_update',
   GROUP_SUMMARY_UPDATE: 'group_summary_update',
+  DM_SUMMARY_UPDATE: 'dm_summary_update',
   ERROR: 'error',
 } as const;
 
@@ -147,6 +151,21 @@ export interface DirectMessage {
   mediaUrl: string | null;
   mediaType: MediaType | null;
   createdAt: string;
+}
+
+export interface DmLastMessage {
+  content: string | null;
+  senderName: string;
+  createdAt: string;
+}
+
+export interface DmSummaryUpdate {
+  peerId: string;
+  lastActivityAt: string;
+  lastMessage: DmLastMessage | null;
+  lastReadAt: string | null;
+  unreadCount: number;
+  archived: boolean;
 }
 
 export interface UserSummary {
