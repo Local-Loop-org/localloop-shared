@@ -62,15 +62,19 @@ localloop-shared/
     shared-types/    @localloop/shared-types — enums + interfaces shared by API and mobile
     geo-utils/       @localloop/geo-utils — geohash + haversine helpers
   docs/
-    status.md        Living project status (read first to know what's shipped vs in flight)
-    architecture.md  Architecture, layering, privacy rules
-    api-contracts.md REST endpoints + WebSocket events
-    data-model.md    Database schema + enum mapping
-    prd.md           Product requirements
-    decisions/       ADR trail (5 decisions logged)
+    status.md            Living project status (read first to know what's in flight)
+    done.md              Closed work archived out of status.md (full checklists for shipped slices)
+    testing-backlog.md   All pending tests (API integration, mobile E2E, Maestro flows)
+    backlog.md           Lower-priority work (Phase 5 polish, RQ migration tail, DevOps)
+    history.md           Dated branch-level summaries (the older "Last updated" entries)
+    architecture.md      Architecture, layering, privacy rules
+    api-contracts.md     REST endpoints + WebSocket events
+    data-model.md        Database schema + enum mapping
+    prd.md               Product requirements
+    decisions/           ADR trail (5 decisions logged)
 ```
 
-Quick links into the docs: [architecture.md](docs/architecture.md) · [api-contracts.md](docs/api-contracts.md) · [data-model.md](docs/data-model.md) · [decisions/](docs/decisions/) · [status.md](docs/status.md).
+Quick links into the docs: [status.md](docs/status.md) · [done.md](docs/done.md) · [testing-backlog.md](docs/testing-backlog.md) · [backlog.md](docs/backlog.md) · [architecture.md](docs/architecture.md) · [api-contracts.md](docs/api-contracts.md) · [data-model.md](docs/data-model.md) · [decisions/](docs/decisions/).
 
 ## Shared packages
 
