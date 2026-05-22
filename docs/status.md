@@ -20,6 +20,8 @@
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
 
+2026-05-22 — Chat features batch planned (doc-only on `docs/chat-features-plan`). Added "Chat features batch — Clusters A–D" section to Up next, grouping six new mobile asks (reply messages, push grouping, push cleanup, DM read receipts, reactions, delete on long-press) with already-tracked work (M3 push tap routing absorbed into Cluster A; `useDmPresence(peerId)` absorbed into Cluster B). Cluster A also picks up push-payload + avatar rendering: A5 extends the API payload (chat id, message id, avatar URL), A6 renders the avatar as the Android notification's top-left large-icon, A7 ships the iOS Notification Service Extension and is **deferred** (blocked on iOS native infra — tracked, not started). Ship order A→B→C→D — A is mostly mobile and lands fastest, B finishes DM polish, C is the biggest migration (and re-opens TD-12/TD-13 as gating decisions), D ships last because reactions sit on top of C's tombstone behaviour. Tasks that hit blockers will drop to [`backlog.md`](./backlog.md); for now they live here.
+
 2026-05-22 — Status restructure (doc-only on `docs/dm-flow-status`). Split closed work into [`done.md`](./done.md), pending tests into [`testing-backlog.md`](./testing-backlog.md), and lower-priority backlog (Phase 5 polish, RQ migration tail, DevOps) into [`backlog.md`](./backlog.md). `status.md` now carries only Current phase + Last updated + In progress + the in-flight subset of Up next + the open Pending decisions / Tech debt / Known issues tables. Phase 1, CI/CD, the DM-TASK-A–H block, and closed Home/Phase 2/Phase 3 slices are summarised inline with one-line pointers to `done.md` so agents don't lose context but stop re-reading 250+ lines of checkboxes every session.
 
 2026-05-22 — Status reconciliation against mobile code (doc-only on `docs/dm-flow-status`). Confirmed M1/M2/M4 are already shipped and the status doc had drifted: [InboxScreen/index.tsx](../../localloop-mobile/src/presentation/screens/InboxScreen/index.tsx) consumes `useDmConversations` + `useDmRequests` + `useDmInboxRealtime` (no `MOCK_DMS`/`MOCK_REQUESTS` remain); [DmChatScreen/index.tsx](../../localloop-mobile/src/presentation/screens/DmChatScreen/index.tsx) is registered as `StackRoutes.DmChat` in `AuthenticatedStack`; `useAcceptDmRequest` + `useDeclineDmRequest` hooks back the request rows. Remaining DM mobile work narrowed to: M3 push tap routing (no `addNotificationResponseReceivedListener` anywhere in `localloop-mobile/src/` — affects group deep-linking too), `useDmPresence(peerId)` to feed `DmChatScreen`'s `peerStatus` (currently hard-coded to `null`), M5 Maestro E2E flows (no `.yaml` flows in the repo), and Phase 5 polish.
@@ -102,6 +104,61 @@ No Maestro flows exist in the mobile repo yet — see the Phase 4 block in [`tes
 
 - Gateway: keep DM events on `ChatGateway` (current) vs. split into a `/dm` namespace. Split simplifies permission rules; current reuses the connection.
 - Exception-list size cap: not enforced today. Revisit only if a user accumulates an unreasonable list (UX or storage cost).
+
+### Chat features batch — Clusters A–D
+
+Planned next. Four clusters grouping six new mobile asks (reply, push grouping, push cleanup, DM read receipts, reactions, delete on long-press) with already-tracked work (M3 push tap routing, `useDmPresence(peerId)`). Ship order A→B→C→D. Tasks that hit blockers drop to [`backlog.md`](./backlog.md).
+
+#### Cluster A · Push notifications (mobile-only)
+
+Absorbs **M3 push tap routing** from Phase 4 above. All four tasks touch the same Expo notification listener.
+
+- [ ] A1 — Register `addNotificationResponseReceivedListener` at app startup; route to `StackRoutes.DmChat` or the group chat route by payload `type`. *(was M3)*
+- [ ] A2 — Group notifications per chat: iOS `threadIdentifier`, Android `groupKey` so N messages from one conversation collapse to one notification carrying the latest messages that fit.
+- [ ] A3 — On chat screen mount (DM + group), call `dismissNotificationAsync` for any notification whose payload `conversationId` matches the open conversation.
+- [ ] A4 — Dedup against WS: if the message already arrived over socket while the chat was open, suppress the local notification.
+- [ ] A5 — **API**: extend push payload with a chat identifier (`peerId` for DM, `groupId` for group), the message id (for A4 dedup), and an avatar URL (`senderAvatarUrl` for DM, `groupAvatarUrl` for group). Verify what the current payload already carries before adding fields.
+- [ ] A6 — **Mobile (Android)**: render the avatar as the notification large-icon (top-left of the expanded notification) and the message text as the body. Exact mechanism TBD during impl — Expo push exposes `richContent.image` (big-picture below body), but `largeIcon` (top-left) may need a data-only push + background handler. Settle the field choice once we see the actual rendering.
+- [ ] A7 — **Mobile (iOS)**: Notification Service Extension to fetch and attach the avatar so iOS renders the image. **Deferred — blocked on dev-build / native infra. Tracked here so it isn't lost; do not start until iOS native work is unblocked.**
+
+#### Cluster B · DM peer state (small API + mobile)
+
+Absorbs **`useDmPresence(peerId)`** from Phase 4 above. Read receipts (sending/sent/read) and presence share the same WS subscription shape.
+
+- [ ] B1 — **API**: confirm `last_read_message_id` (or `last_read_at`) exists per DM participant — the inbox unread counter implies it. If present, expose it; if not, add the column + migration.
+- [ ] B2 — **API**: emit `dm_read_receipt` over WS when peer calls `POST /dm/:peerId/read` or sends `dm_mark_read`. `SendDirectMessageUseCase` emits `sent` on persist.
+- [ ] B3 — **Shared**: extend `DirectMessage` with `status: 'sending' | 'sent' | 'read'` (or derive client-side from `lastReadAt` — settle during impl).
+- [ ] B4 — **Mobile**: `useDmPresence(peerId)` hook → header dot in `DmChatLayout` (replaces hard-coded `peerStatus={null}`). *(was Phase 4)*
+- [ ] B5 — **Mobile**: `useDmReadState(peerId)` hook → bubble checkmark state.
+- [ ] B6 — **Mobile**: `DmMessageBubble` renders status icon per claude design assets (shipped together with the reply assets).
+
+#### Cluster C · Message lifecycle: reply + delete (full-stack)
+
+One migration covers both columns. Long-press primitive on the bubble is shared. **Re-evaluate TD-12 / TD-13 before opening C** — duplicate `SendMessageUseCase` flavors and the `MessagesModule ↔ DirectMessagesModule` cycle both get worse if not addressed first.
+
+- [ ] C1 — **API**: migration on `messages` + DM messages table adds `reply_to_message_id` (nullable self-FK) + `deleted_at` (nullable).
+- [ ] C2 — **API**: both `SendMessageUseCase` flavors accept `replyToMessageId`; validate same conversation + not deleted.
+- [ ] C3 — **API**: new `DeleteMessageUseCase` + `DeleteDirectMessageUseCase`. Authz — DM: own message only; group: own if regular member, any if `OWNER` or `ADMIN`. Soft delete sets `deleted_at`.
+- [ ] C4 — **API**: `DELETE /messages/:id` + DM counterpart, emit `message_deleted` over WS.
+- [ ] C5 — **API**: group WS send + DM HTTP+WS send payloads accept `replyToMessageId`.
+- [ ] C6 — **Shared**: message types gain optional `replyTo: { id, snippet, authorId }` (denormalised so receivers don't refetch) + `deletedAt`.
+- [ ] C7 — **Mobile**: long-press on bubble → ActionSheet (Reply / Delete, gated by perms).
+- [ ] C8 — **Mobile**: reply composer state — quoted preview above input, send carries `replyToMessageId`.
+- [ ] C9 — **Mobile**: quoted preview rendered above replying bubble; tap → scroll to original.
+- [ ] C10 — **Mobile**: tombstone bubble when `deletedAt` is set ("Mensagem apagada").
+
+#### Cluster D · Reactions (full-stack, standalone)
+
+Kept separate from C: new table, own endpoints, own picker UI. Ships last because reactions sit on top of C's tombstone behaviour (don't react to deleted messages).
+
+- [ ] D1 — **API**: migration — `message_reactions(message_id, user_id, emoji, created_at)` with unique `(message_id, user_id, emoji)`.
+- [ ] D2 — **API**: `POST /messages/:id/reactions { emoji }` + `DELETE /messages/:id/reactions/:emoji`, and DM variant.
+- [ ] D3 — **API**: message read endpoints embed `reactions: [{ emoji, count, mine }]`.
+- [ ] D4 — **API**: emit `message_reaction_changed` over WS.
+- [ ] D5 — **Shared**: `MessageReaction` type + `reactions[]` summary field on message types.
+- [ ] D6 — **Mobile**: single-tap on bubble → emoji picker overlay (claude design assets).
+- [ ] D7 — **Mobile**: reaction chips under bubble; tap own chip to remove, tap others' to add yours.
+- [ ] D8 — **Mobile**: WS-driven live updates of the reaction summary.
 
 ### Phase 5 — Polish, RQ migration tail, DevOps
 
