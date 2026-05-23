@@ -66,6 +66,33 @@ export enum MessagePermission {
   ALL_MEMBERS = 'all_members',
 }
 
+export type PushConversationKey = `group:${string}` | `dm:${string}`;
+
+export interface GroupMessagePushNotificationData {
+  type: 'group_message';
+  conversationKey: `group:${string}`;
+  groupId: string;
+  groupName: string;
+  anchorType: AnchorType;
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatarUrl: string | null;
+}
+
+export interface DirectMessagePushNotificationData {
+  type: 'direct_message';
+  conversationKey: `dm:${string}`;
+  peerId: string;
+  peerName: string;
+  peerAvatarUrl: string | null;
+  messageId: string;
+}
+
+export type ChatPushNotificationData =
+  | GroupMessagePushNotificationData
+  | DirectMessagePushNotificationData;
+
 export const ChatSocketEvents = {
   JOIN_GROUP: 'join_group',
   LEAVE_GROUP: 'leave_group',

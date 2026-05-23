@@ -236,7 +236,7 @@ These three write paths grandfather active conversations naturally: both partici
 
 **Self-DM defense in depth.** Rejected at three layers: use case throws `CANNOT_DM_SELF`, DB enforces `chk_dm_distinct_participants` and `chk_dm_req_distinct`, gateway `join_dm` returns `{ok: false}` on self-pair. Each layer catches a different class of bug.
 
-**Multi-device dedup.** When the DM push fan-out ships, the server will skip the push if the recipient currently has a socket joined to `dm:{sortedA}:{sortedB}` (mirrors group fan-out's "skip users connected to `group:{groupId}`" rule). Clients dedup `new_direct_message` WS payloads + any duplicate push payloads by message `id` as a fallback.
+**Multi-device dedup.** DM push fan-out skips the push if the recipient currently has a socket joined to `dm:{sortedA}:{sortedB}` (mirrors group fan-out's "skip users connected to `group:{groupId}`" rule). Clients dedup `new_direct_message` WS payloads + any duplicate push payloads by message `id` as a fallback.
 
 **Display names.** All endpoints (`/dm`, `/dm/requests`, `/dm/:userId`, WS payloads) JOIN `users.display_name` at query time — no snapshotting. A peer rename is reflected across history immediately on next read. The same applies to `users.avatar_url`.
 
@@ -252,8 +252,8 @@ These three write paths grandfather active conversations naturally: both partici
   6. **`watch_dm_inbox` / `unwatch_dm_inbox` / `dm_summary_update` WS events** are not implemented.
   7. **`mark_dm_read` WS event** is not implemented.
   8. ~~**Deactivated-peer placeholder substitution**~~ **Closed (DM-TASK-G)**. `listInbox` (peer + last-sender), `listConversation` / `findByIdWithSender` (via `baseQuery()`), `listRequests` (sender), `getDmSummary` (last-sender), and `acceptRequestAtomic`'s final SELECT (sender) all substitute `'Conta desativada'` + null avatar when joined `users.is_active = false`. `GetDirectMessageHistoryUseCase` no longer 404s on inactive recipients so the inbox-tap UX works end-to-end (send still 404s per spec). `listExceptions` is intentionally excluded — it filters inactive peers out (per Gap 3 spec, the row remains but is hidden from the manual exception list).
-  9. **DM push fan-out** is not implemented (planned only for new messages, not for acceptance).
-  10. **Server-side push-vs-WS dedup** (skip push when recipient has socket in `dm:{a}:{b}`) is not implemented because (9) is not implemented.
+  9. ~~**DM push fan-out** is not implemented.~~ **Closed (DM-TASK-F).** Direct DM messages trigger best-effort push to the recipient's enabled devices; requests and accepted-request materialization remain push-free.
+  10. ~~**Server-side push-vs-WS dedup** is not implemented.~~ **Closed (DM-TASK-F).** The server skips a DM push when the recipient has a socket in `dm:{a}:{b}`.
   11. **`dm_conversation_state` eager-init on the sender side** is not implemented. Current code is purely lazy; the sender's "own sends not unread" property is currently enforced by the `sender_id != caller` SQL filter, which works but means the sender's `last_read_at` is never advanced by their own activity.
   12. ~~**DTO naming inconsistency**~~ **Closed (DM-TASK-H)**. `DirectMessage.senderAvatar` renamed to `senderAvatarUrl` (`@localloop/shared-types@2.0.0`). The rename extended to the group `Message` types for symmetry across the whole chat surface. All avatar-bearing DM/group payloads (HTTP + WS) now use the `…AvatarUrl` suffix uniformly.
 
@@ -264,7 +264,9 @@ These three write paths grandfather active conversations naturally: both partici
 - Mobile asks from Home only while status is `null`; once the user grants or denies permission, future changes happen from Profile only.
 - Group message fan-out runs after successful `/chat` `send_message` delivery. `ChatGateway` emits `new_message`, then fires a best-effort notification use case that excludes the sender and users currently connected to `group:{groupId}`.
 - Notification delivery uses enabled device rows for active group members whose user-level push permission is `granted`. Immediate Expo `DeviceNotRegistered` ticket errors disable the affected token.
-- DM push fan-out, receipt polling, and mobile notification deep-link routing are deferred.
+- DM message fan-out runs after successful `/chat` `send_dm` delivery when the result is a materialized message. Request sends and request acceptance do not fire push notifications.
+- Mobile notification routing handles group and DM taps, dismisses visible notifications for the open conversation, and suppresses foreground notifications when the open chat or a seen WS message already covers the payload.
+- Receipt polling, true per-chat notification digests, Android large-icon avatars, and iOS notification service attachments are deferred.
 
 ### Media uploads (Phase 3)
 

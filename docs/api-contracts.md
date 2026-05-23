@@ -259,9 +259,14 @@ Notification:
   "body": "<senderName>: <message preview>",
   "data": {
     "type": "group_message",
+    "conversationKey": "group:<groupId>",
     "groupId": string,
+    "groupName": string,
+    "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
     "messageId": string,
-    "senderId": string
+    "senderId": string,
+    "senderName": string,
+    "senderAvatarUrl": string | null
   }
 }
 
@@ -269,7 +274,43 @@ Notes:
   - best-effort delivery; provider errors do not fail WebSocket message delivery.
   - preview collapses whitespace, is capped at 120 chars, and uses "..." when truncated.
   - immediate DeviceNotRegistered ticket errors disable the matching token.
-  - tapping the notification is mobile-owned and does not deep-link to chat yet.
+  - tapping the notification deep-links to the group chat when the mobile user is authenticated.
+  - `conversationKey` is notification-only metadata used by mobile cleanup/dedup.
+```
+
+---
+
+### Direct-message push fan-out
+
+```
+Trigger: successful send_dm event on /chat when the result type is "message"
+Provider: expo
+
+Recipients:
+  - enabled push_devices rows for the recipient
+  - users.push_permission_status = 'granted'
+  - excludes the sender
+  - skips push when the recipient currently has a socket connected to dm:{sortedA}:{sortedB}
+
+Notification:
+{
+  "title": "<senderName>",
+  "body": "<message preview>",
+  "data": {
+    "type": "direct_message",
+    "conversationKey": "dm:<peerId>",
+    "peerId": string,
+    "peerName": string,
+    "peerAvatarUrl": string | null,
+    "messageId": string
+  }
+}
+
+Notes:
+  - best-effort delivery; provider errors do not fail WebSocket message delivery.
+  - no push is sent for DM requests or accepted-request materialization.
+  - tapping the notification deep-links to the DM chat when the mobile user is authenticated.
+  - `conversationKey` is notification-only metadata used by mobile cleanup/dedup.
 ```
 
 ---

@@ -48,7 +48,7 @@
 - [ ] Send image
 - [ ] Receive message in real-time
 
-### Phase 4 — DMs (M5 — blocked on M3 for the push-tap flow)
+### Phase 4 — DMs (M5)
 
 - [ ] Send a DM (one flow per `dm_permission` value)
 - [ ] Receive a DM in real time

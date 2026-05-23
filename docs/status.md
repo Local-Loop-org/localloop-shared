@@ -12,13 +12,15 @@
 
 ## Current phase
 
-**Phase 4 DM flow shipped end-to-end on mobile except for push deep-link routing, DM presence, and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M4 shipped on mobile; DM-exception-candidates contract + API live. **Open DM work**: M3 push tap routing (no `addNotificationResponseReceivedListener` in the app; affects group chat deep-linking too) + `useDmPresence(peerId)` to drive `DmChatScreen` header's online dot (currently `peerStatus={null}`); M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
+**Phase 4 DM flow shipped end-to-end on mobile except for DM presence and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup and payload metadata shipped on `feat/push-tap-routing`. **Open DM work**: `useDmPresence(peerId)` to drive `DmChatScreen` header's online dot (currently `peerStatus={null}`); M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
 
 ---
 
 ## Last updated
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
+
+2026-05-22 — Cluster A push routing/payload shipped on `feat/push-tap-routing` (shared + API + mobile). **Shared**: `@localloop/shared-types@2.2.0` adds `ChatPushNotificationData` (`group_message` + `direct_message`) with notification-only `conversationKey`. **API**: group push payload now includes `conversationKey`, `groupName`, `anchorType`, `senderName`, and `senderAvatarUrl`; DM push payload includes `conversationKey`, `peerName`, and `peerAvatarUrl`. **Mobile**: one startup `addNotificationResponseReceivedListener` plus cold-start response handling deep-links authenticated users into `GroupChat`/`DmChat`; chat screens mark the active `conversationKey`, dismiss matching presented notifications, and suppress foreground banners when the active chat or a seen WS message already covers the push. **A6 result**: strict Android top-left large-icon is not available through the current Expo push payload (`richContent.image` is big-picture, not large-icon), so avatar rendering remains blocked on native/FCM customization. **Still open**: A2 true per-chat digest grouping, A7 iOS notification service extension, DM peer presence, and Maestro E2E.
 
 2026-05-22 — Chat enrichments added to the features batch (doc-only on `docs/chat-features-additions`). Cluster C grows to "reply + delete + edit" (edit is a near-mirror of delete on the same migration — adds `edited_at` column, edit use cases with **the same authz as delete** (DM: own only; group: own if regular member, any if `OWNER`/`ADMIN`), `PATCH /messages/:id` + DM counterpart, `message_edited` WS event, ActionSheet entry, edit composer state, "editado" suffix on the bubble). New Cluster E covers send-failure + retry — universal (DM + group), mobile-mostly, ships any time and is a candidate to land **before** A since it directly fixes a UX gap users hit today (failed sends silently disappear). E surfaces a `sendStatus: 'sending' | 'sent' | 'failed'` on the optimistic bubble, renders the failed bubble + retry affordance per claude design assets, and re-fires the same mutation with a stable `clientMessageId` on retry. Intro re-counted to five clusters; ship order suggestion is now E → A → B → C → D (E first if any one-day window opens; otherwise still A first).
 
@@ -34,7 +36,7 @@
 
 ## In progress
 
-DM flow now sits on three concrete gaps: (1) **push tap routing** — no `addNotificationResponseReceivedListener` exists in `localloop-mobile/src/`, so neither DM nor group push payloads deep-link; (2) **`useDmPresence(peerId)`** — `DmChatScreen` passes `peerStatus={null}` to its layout, the layout already renders the dot when fed an `online` status, but no hook subscribes to peer presence; (3) **M5 Maestro E2E** — zero `.yaml` flows in the mobile repo. Once those land the DM track closes apart from Phase 5 polish. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
+DM flow now sits on two concrete gaps: (1) **`useDmPresence(peerId)`** — `DmChatScreen` passes `peerStatus={null}` to its layout, the layout already renders the dot when fed an `online` status, but no hook subscribes to peer presence; (2) **M5 Maestro E2E** — zero `.yaml` flows in the mobile repo. Once those land the DM track closes apart from Phase 5 polish. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
 
 ---
 
@@ -92,10 +94,10 @@ Foundation, DM-TASK-A through H, S1/S2/S3, M1, M2, M4, and DM-exception-candidat
 
 **Remaining**
 
-#### M3 · Mobile: push tap routing + peer presence
+#### M3 · Mobile: peer presence
 
 - `useDmPresence(peerId)` — new hook that subscribes to peer presence over the chat socket and feeds the existing `peerStatus` prop on `DmChatLayout` so the header dot lights up. Mirrors the inline presence handling already in `useGroupChat` / `useGroupListRealtime`; no `useGroupPresence` exists today, so the shared shape can be designed fresh.
-- Push tap routing — no `addNotificationResponseReceivedListener` exists anywhere in `localloop-mobile/src/`. Add a single listener at app startup that inspects the payload (group vs DM) and `navigation.navigate(StackRoutes.DmChat, { peerId, ... })` or the group equivalent. Also dedups against the WS event when both fire for the same message.
+- Push tap routing is closed by Cluster A on `feat/push-tap-routing`: mobile registers a single response listener, handles cold-start responses, routes group/DM payloads, dismisses matching presented notifications on chat mount, and suppresses foreground duplicates.
 - `useDmInboxRealtime` is already wired in `InboxScreen` and refreshes the conversations cache from `dm_summary_update`, so the realtime half of the original M3 is done.
 
 #### M5 · Maestro E2E
@@ -109,18 +111,18 @@ No Maestro flows exist in the mobile repo yet — see the Phase 4 block in [`tes
 
 ### Chat features batch — Clusters A–E
 
-Planned next. Five clusters grouping eight new mobile asks (reply, push grouping, push cleanup, DM read receipts, reactions, delete on long-press, **edit on long-press**, **failed-send + retry**) with already-tracked work (M3 push tap routing, `useDmPresence(peerId)`). Suggested ship order **E → A → B → C → D**: E is the smallest and most universal (fixes a current UX gap where failed sends vanish silently), A→D is the original order. If E and A can't ship together in the same window, ship A first as originally planned. Tasks that hit blockers drop to [`backlog.md`](./backlog.md).
+Planned next. Five clusters grouping eight new mobile asks (reply, push grouping, push cleanup, DM read receipts, reactions, delete on long-press, **edit on long-press**, **failed-send + retry**) with already-tracked work (`useDmPresence(peerId)`; M3 push tap routing is now closed by A1). Suggested ship order **E → A → B → C → D**: E is the smallest and most universal (fixes a current UX gap where failed sends silently disappear), A2/B/C/D remain open. Tasks that hit blockers drop to [`backlog.md`](./backlog.md).
 
-#### Cluster A · Push notifications (mobile-only)
+#### Cluster A · Push notifications
 
-Absorbs **M3 push tap routing** from Phase 4 above. All four tasks touch the same Expo notification listener.
+Absorbs **M3 push tap routing** from Phase 4 above. Completed routing/cleanup/dedup work centers on the Expo notification listener; remaining digest/avatar tasks are separate slices.
 
-- [ ] A1 — Register `addNotificationResponseReceivedListener` at app startup; route to `StackRoutes.DmChat` or the group chat route by payload `type`. *(was M3)*
-- [ ] A2 — Group notifications per chat: iOS `threadIdentifier`, Android `groupKey` so N messages from one conversation collapse to one notification carrying the latest messages that fit.
-- [ ] A3 — On chat screen mount (DM + group), call `dismissNotificationAsync` for any notification whose payload `conversationId` matches the open conversation.
-- [ ] A4 — Dedup against WS: if the message already arrived over socket while the chat was open, suppress the local notification.
-- [ ] A5 — **API**: extend push payload with a chat identifier (`peerId` for DM, `groupId` for group), the message id (for A4 dedup), and an avatar URL (`senderAvatarUrl` for DM, `groupAvatarUrl` for group). Verify what the current payload already carries before adding fields.
-- [ ] A6 — **Mobile (Android)**: render the avatar as the notification large-icon (top-left of the expanded notification) and the message text as the body. Exact mechanism TBD during impl — Expo push exposes `richContent.image` (big-picture below body), but `largeIcon` (top-left) may need a data-only push + background handler. Settle the field choice once we see the actual rendering.
+- [x] A1 — Register `addNotificationResponseReceivedListener` at app startup; route to `StackRoutes.DmChat` or the group chat route by payload `type`. *(was M3)*
+- [ ] A2 — True per-chat notification digest: if a user receives multiple messages in the same chat, send/replace one notification whose body includes the newest message snippets that fit. This is API-heavy per-recipient digest work, not simple Expo collapse.
+- [x] A3 — On chat screen mount (DM + group), call `dismissNotificationAsync` for any notification whose payload `conversationKey` matches the open conversation.
+- [x] A4 — Dedup against WS: if the message already arrived over socket while the chat was open, suppress the foreground notification.
+- [x] A5 — **Shared + API + Mobile**: `ChatPushNotificationData` now carries `conversationKey`, message id, route metadata, and sender/peer avatar URL. Group payload omits `groupAvatarUrl` because no group avatar model exists.
+- [ ] A6 — **Mobile (Android)**: strict top-left notification large-icon remains blocked. Current Expo push supports `richContent.image` (big-picture) but not Android `largeIcon`; do not implement an image fallback unless native/FCM customization is approved.
 - [ ] A7 — **Mobile (iOS)**: Notification Service Extension to fetch and attach the avatar so iOS renders the image. **Deferred — blocked on dev-build / native infra. Tracked here so it isn't lost; do not start until iOS native work is unblocked.**
 
 #### Cluster B · DM peer state (small API + mobile)
