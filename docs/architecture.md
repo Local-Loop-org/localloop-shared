@@ -266,7 +266,8 @@ These three write paths grandfather active conversations naturally: both partici
 - Notification delivery uses enabled device rows for active group members whose user-level push permission is `granted`. Immediate Expo `DeviceNotRegistered` ticket errors disable the affected token.
 - DM message fan-out runs after successful `/chat` `send_dm` delivery when the result is a materialized message. Request sends and request acceptance do not fire push notifications.
 - Mobile notification routing handles group and DM taps, dismisses visible notifications for the open conversation, and suppresses foreground notifications when the open chat or a seen WS message already covers the payload.
-- Receipt polling, true per-chat notification digests, Android large-icon avatars, and iOS notification service attachments are deferred.
+- Chat push digests are per recipient + `conversationKey`, persisted in `chat_notification_digests`, and updated immediately on each offline message. The API keeps the newest 4 snippets, resets stale digest state after 30 minutes, and sends replacement pushes with a stable `collapseId` + Android `tag` (`chat:{recipientUserId}:{conversationKey}`). The first push uses normal sound; replacement pushes are silent. Opening or marking the chat read clears the digest.
+- Receipt polling, Android large-icon avatars, and iOS notification service attachments are deferred.
 
 ### Media uploads (Phase 3)
 
