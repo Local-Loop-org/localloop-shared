@@ -12,13 +12,15 @@
 
 ## Current phase
 
-**Phase 4 DM flow shipped end-to-end on mobile except for DM presence and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup and payload metadata shipped on `feat/push-tap-routing`. **Open DM work**: `useDmPresence(peerId)` to drive `DmChatScreen` header's online dot (currently `peerStatus={null}`); M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
+**Phase 4 DM flow shipped end-to-end on mobile except for DM presence and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: `useDmPresence(peerId)` to drive `DmChatScreen` header's online dot (currently `peerStatus={null}`); M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
 
 ---
 
 ## Last updated
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
+
+2026-05-24 — A2 immediate per-chat push digest implemented on `feat/chat-push-digest` (API + shared docs). API adds persisted `chat_notification_digests` keyed by recipient + `conversationKey`, records the newest 4 snippets per chat, resets stale digest state after 30 minutes, and sends replacement notifications with stable `collapseId` + Android `tag` (`chat:{recipientUserId}:{conversationKey}`). First digest push keeps sound; replacement pushes set `sound: null`. Group fan-out now builds digests per recipient while preserving offline-room exclusions; DM fan-out does the same for the recipient. `join_group`, `join_dm`, `mark_group_read`, and `mark_dm_read` clear the matching digest state so the next later push starts fresh. Mobile parser/routing contract is unchanged.
 
 2026-05-22 — Cluster A push routing/payload shipped on `feat/push-tap-routing` (shared + API + mobile). **Shared**: `@localloop/shared-types@2.2.0` adds `ChatPushNotificationData` (`group_message` + `direct_message`) with notification-only `conversationKey`. **API**: group push payload now includes `conversationKey`, `groupName`, `anchorType`, `senderName`, and `senderAvatarUrl`; DM push payload includes `conversationKey`, `peerName`, and `peerAvatarUrl`. **Mobile**: one startup `addNotificationResponseReceivedListener` plus cold-start response handling deep-links authenticated users into `GroupChat`/`DmChat`; chat screens mark the active `conversationKey`, dismiss matching presented notifications, and suppress foreground banners when the active chat or a seen WS message already covers the push. **A6 result**: strict Android top-left large-icon is not available through the current Expo push payload (`richContent.image` is big-picture, not large-icon), so avatar rendering remains blocked on native/FCM customization. **Still open**: A2 true per-chat digest grouping, A7 iOS notification service extension, DM peer presence, and Maestro E2E.
 
@@ -118,7 +120,7 @@ Planned next. Five clusters grouping eight new mobile asks (reply, push grouping
 Absorbs **M3 push tap routing** from Phase 4 above. Completed routing/cleanup/dedup work centers on the Expo notification listener; remaining digest/avatar tasks are separate slices.
 
 - [x] A1 — Register `addNotificationResponseReceivedListener` at app startup; route to `StackRoutes.DmChat` or the group chat route by payload `type`. *(was M3)*
-- [ ] A2 — True per-chat notification digest: if a user receives multiple messages in the same chat, send/replace one notification whose body includes the newest message snippets that fit. This is API-heavy per-recipient digest work, not simple Expo collapse.
+- [x] A2 — True per-chat notification digest: API stores per-recipient digest state and immediately sends/replaces one notification per `conversationKey` with the newest snippets that fit. Uses Expo `collapseId` + Android `tag`; replacement pushes are silent.
 - [x] A3 — On chat screen mount (DM + group), call `dismissNotificationAsync` for any notification whose payload `conversationKey` matches the open conversation.
 - [x] A4 — Dedup against WS: if the message already arrived over socket while the chat was open, suppress the foreground notification.
 - [x] A5 — **Shared + API + Mobile**: `ChatPushNotificationData` now carries `conversationKey`, message id, route metadata, and sender/peer avatar URL. Group payload omits `groupAvatarUrl` because no group avatar model exists.
