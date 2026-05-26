@@ -12,13 +12,15 @@
 
 ## Current phase
 
-**Phase 4 DM flow shipped end-to-end on mobile except for DM presence, read-state UI, and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: `useDmPresence(peerId)` to drive `DmChatScreen` header's online dot (currently `peerStatus={null}`); `useDmReadState(peerId)` + bubble status icons; M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
+**Phase 4 DM flow shipped end-to-end on mobile except for read-state UI and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M3 peer presence, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: `useDmReadState(peerId)` + bubble status icons; M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
 
 ---
 
 ## Last updated
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
+
+2026-05-26 — B4 DM peer presence implemented on `feat/dm-peer-presence` (shared + API + mobile). `@localloop/shared-types@2.5.0` adds `watch_dm_presence`, `unwatch_dm_presence`, `dm_presence_update`, and `DmPresenceUpdate { peerId, online }`. API exposes a read-only DM presence observer on `/chat`: callers can watch peers only when a delivered DM thread exists or both users share an ACTIVE group, and online means the peer has at least one authenticated `/chat` socket. Mobile adds `useDmPresence(peerId)` and feeds `DmChatLayout.peerStatus`, rendering the peer avatar online dot plus existing "Online" subtitle. API/mobile lockfile bumps remain deferred until `@localloop/shared-types@2.5.0` is published.
 
 2026-05-26 — B3 DM message status contract implemented on `feat/dm-message-status` (shared only). `@localloop/shared-types@2.4.0` adds `DirectMessageStatus`, `DirectMessageWithStatus`, and `DirectMessageHistoryResponse`. No `status` field is serialized by the API; mobile derives read-state UI from optimistic local messages plus `peerLastReadAt`: unsent local messages are `sending`, persisted caller messages covered by the peer watermark are `read`, and persisted caller messages not covered by the watermark are `sent`. Also updates `packages/shared-types/tsconfig.json` from deprecated `moduleResolution: "node"` to `"node10"`.
 
@@ -44,7 +46,7 @@
 
 ## In progress
 
-DM flow now sits on two concrete gaps: (1) **`useDmPresence(peerId)`** — `DmChatScreen` passes `peerStatus={null}` to its layout, the layout already renders the dot when fed an `online` status, but no hook subscribes to peer presence; (2) **M5 Maestro E2E** — zero `.yaml` flows in the mobile repo. Once those land the DM track closes apart from Phase 5 polish. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
+DM flow now sits on two concrete gaps: (1) **B5/B6 read-state UI** — consume the existing `peerLastReadAt`/`dm_read_receipt` contract and render bubble status icons; (2) **M5 Maestro E2E** — zero `.yaml` flows in the mobile repo. Once those land the DM track closes apart from Phase 5 polish. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
 
 ---
 
@@ -104,13 +106,13 @@ Foundation, DM-TASK-A through H, S1/S2/S3, M1, M2, M4, and DM-exception-candidat
 
 #### M3 · Mobile: peer presence
 
-- `useDmPresence(peerId)` — new hook that subscribes to peer presence over the chat socket and feeds the existing `peerStatus` prop on `DmChatLayout` so the header dot lights up. Mirrors the inline presence handling already in `useGroupChat` / `useGroupListRealtime`; no `useGroupPresence` exists today, so the shared shape can be designed fresh.
+- `useDmPresence(peerId)` shipped by B4: mobile subscribes to `watch_dm_presence`, consumes `dm_presence_update`, and feeds the existing `peerStatus` prop on `DmChatLayout` so the header dot lights up.
 - Push tap routing is closed by Cluster A on `feat/push-tap-routing`: mobile registers a single response listener, handles cold-start responses, routes group/DM payloads, dismisses matching presented notifications on chat mount, and suppresses foreground duplicates.
 - `useDmInboxRealtime` is already wired in `InboxScreen` and refreshes the conversations cache from `dm_summary_update`, so the realtime half of the original M3 is done.
 
 #### M5 · Maestro E2E
 
-No Maestro flows exist in the mobile repo yet — see the Phase 4 block in [`testing-backlog.md`](./testing-backlog.md). Blocked on M3 for the push-tap flow.
+No Maestro flows exist in the mobile repo yet — see the Phase 4 block in [`testing-backlog.md`](./testing-backlog.md).
 
 **Open decisions**
 
@@ -140,7 +142,7 @@ Absorbs **`useDmPresence(peerId)`** from Phase 4 above. Read receipts (sending/s
 - [x] B1 — **API**: confirmed `dm_conversation_state.last_read_at` exists per DM participant; no migration needed. `GET /dm` exposes caller `lastReadAt`, and `GET /dm/:userId` exposes caller `lastReadAt` + `peerLastReadAt`.
 - [x] B2 — **Shared + API**: `@localloop/shared-types@2.3.0` adds `dm_read_receipt`; API emits it over WS when a participant calls `POST /dm/:peerId/read` or sends `mark_dm_read`. `new_direct_message` remains the persisted "sent" signal.
 - [x] B3 — **Shared**: `@localloop/shared-types@2.4.0` adds `DirectMessageStatus`, `DirectMessageWithStatus`, and `DirectMessageHistoryResponse`; status is derived client-side from optimistic state + `peerLastReadAt`, with no API `status` wire field.
-- [ ] B4 — **Mobile**: `useDmPresence(peerId)` hook → header dot in `DmChatLayout` (replaces hard-coded `peerStatus={null}`). *(was Phase 4)*
+- [x] B4 — **Shared + API + Mobile**: `useDmPresence(peerId)` hook → header dot in `DmChatLayout`; API provides read-only `watch_dm_presence` / `dm_presence_update`. *(was Phase 4)*
 - [ ] B5 — **Mobile**: `useDmReadState(peerId)` hook → bubble checkmark state.
 - [ ] B6 — **Mobile**: `DmMessageBubble` renders status icon per claude design assets (shipped together with the reply assets).
 
