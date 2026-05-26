@@ -747,6 +747,7 @@ Response 200:
         "senderName": string,
         "createdAt": string             // ISO 8601
       },
+      "lastReadAt": string | null,
       "unreadCount": number,
       "archived": boolean
     }
@@ -755,7 +756,7 @@ Response 200:
 }
 
 notes: one row per peer with at least one delivered message. Ordered by
-       lastMessageAt DESC. unreadCount and archived come from
+       lastMessageAt DESC. lastReadAt, unreadCount, and archived come from
        dm_conversation_state and are caller-scoped. Pending requests are
        NOT included here — see GET /dm/requests.
 ```
@@ -859,11 +860,16 @@ Response 200:
       "createdAt": string             // ISO 8601, also used as the next cursor
     }
   ],
+  "lastReadAt": string | null,        // caller's read watermark for this peer
+  "peerLastReadAt": string | null,    // peer's read watermark for the caller
   "next_cursor": string | null
 }
 
 notes: ordered newest-first; pagination uses created_at as cursor. No DM policy
        check on read — once a thread exists, either participant can browse it.
+       Read watermarks come from dm_conversation_state and serialize as null
+       when the state row is absent or the pair has no delivered, non-deleted
+       direct_messages row.
 
 Errors:
   400 CANNOT_DM_SELF       — :userId equals the caller
