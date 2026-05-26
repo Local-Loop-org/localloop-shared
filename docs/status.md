@@ -20,6 +20,8 @@
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
 
+2026-05-26 — B3 DM message status contract implemented on `feat/dm-message-status` (shared only). `@localloop/shared-types@2.4.0` adds `DirectMessageStatus`, `DirectMessageWithStatus`, and `DirectMessageHistoryResponse`. No `status` field is serialized by the API; mobile derives read-state UI from optimistic local messages plus `peerLastReadAt`: unsent local messages are `sending`, persisted caller messages covered by the peer watermark are `read`, and persisted caller messages not covered by the watermark are `sent`. Also updates `packages/shared-types/tsconfig.json` from deprecated `moduleResolution: "node"` to `"node10"`.
+
 2026-05-26 — B2 DM read receipts implemented on `feat/dm-read-receipts` (shared + API). `@localloop/shared-types@2.3.0` adds `ChatSocketEvents.DM_READ_RECEIPT` and `DmReadReceipt`; API emits `dm_read_receipt { readerId, peerId, lastReadAt }` into the sorted DM room after `mark_dm_read` or `POST /dm/:userId/read` succeeds. Both paths advance `dm_conversation_state.last_read_at`, emit caller-scoped `dm_summary_update`, and clear the caller's DM push digest. Mobile read-state rendering remains deferred to B5/B6.
 
 2026-05-26 — B1 DM last-read exposure implemented on `feat/dm-last-read-exposure` (API) + `docs/dm-last-read-exposure` (shared docs). Confirmed `dm_conversation_state.last_read_at` already exists, so no migration was added. `GET /dm` now exposes caller-scoped `lastReadAt` beside `unreadCount`; `GET /dm/:userId` exposes top-level `lastReadAt` and `peerLastReadAt` to seed read-receipt UI. Read-state exposure is gated to delivered, non-deleted DM threads; absent state rows serialize as `null`.
@@ -137,7 +139,7 @@ Absorbs **`useDmPresence(peerId)`** from Phase 4 above. Read receipts (sending/s
 
 - [x] B1 — **API**: confirmed `dm_conversation_state.last_read_at` exists per DM participant; no migration needed. `GET /dm` exposes caller `lastReadAt`, and `GET /dm/:userId` exposes caller `lastReadAt` + `peerLastReadAt`.
 - [x] B2 — **Shared + API**: `@localloop/shared-types@2.3.0` adds `dm_read_receipt`; API emits it over WS when a participant calls `POST /dm/:peerId/read` or sends `mark_dm_read`. `new_direct_message` remains the persisted "sent" signal.
-- [ ] B3 — **Shared**: extend `DirectMessage` with `status: 'sending' | 'sent' | 'read'` (or derive client-side from `lastReadAt` — settle during impl).
+- [x] B3 — **Shared**: `@localloop/shared-types@2.4.0` adds `DirectMessageStatus`, `DirectMessageWithStatus`, and `DirectMessageHistoryResponse`; status is derived client-side from optimistic state + `peerLastReadAt`, with no API `status` wire field.
 - [ ] B4 — **Mobile**: `useDmPresence(peerId)` hook → header dot in `DmChatLayout` (replaces hard-coded `peerStatus={null}`). *(was Phase 4)*
 - [ ] B5 — **Mobile**: `useDmReadState(peerId)` hook → bubble checkmark state.
 - [ ] B6 — **Mobile**: `DmMessageBubble` renders status icon per claude design assets (shipped together with the reply assets).

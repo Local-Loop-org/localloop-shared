@@ -181,6 +181,19 @@ export interface DirectMessage {
   createdAt: string;
 }
 
+export type DirectMessageStatus = 'sending' | 'sent' | 'read' | 'error';
+
+export type DirectMessageWithStatus = DirectMessage & {
+  status: DirectMessageStatus;
+};
+
+export interface DirectMessageHistoryResponse {
+  data: DirectMessage[];
+  lastReadAt: string | null;
+  peerLastReadAt: string | null;
+  next_cursor: string | null;
+}
+
 export interface DmReadReceipt {
   readerId: string;
   peerId: string;
