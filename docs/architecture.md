@@ -212,12 +212,13 @@ These three write paths grandfather active conversations naturally: both partici
   - `last_read_at` drives `unreadCount` in `/dm`. The query excludes the caller's own sends and uses `COALESCE(last_read_at, '-infinity')`, so an unread row defaults to "everything from the peer is unread".
   - `archived` is a hide-from-main-inbox flag. **It is independent of read state** — an archived thread still accumulates `unreadCount` when the peer sends, so a future "Archived (N)" filter chip can resurface re-engagement.
   - **Lifecycle (intended)**: the **sender's** row is created on send with `last_read_at = now()` (so the sender never sees their own sends as unread). The **recipient's** row is created on first `mark_dm_read` or on first `archive`. Until then, the recipient's row absence is read as `last_read_at = -infinity` and unread is honestly N.
-  - **Mark-read**: WS `mark_dm_read { peerId }` mirrors `mark_group_read`. Side effect: upserts `last_read_at = now()` and emits `dm_summary_update` to the caller's user-scoped sockets so the badge clears across devices.
+  - **Mark-read**: WS `mark_dm_read { peerId }` and REST `POST /dm/:peerId/read` mirror `mark_group_read`. Side effect: upserts `last_read_at = now()`, emits `dm_summary_update` to the caller's user-scoped sockets so the badge clears across devices, emits `dm_read_receipt { readerId, peerId, lastReadAt }` into the sorted DM room, and clears the caller's push digest for `dm:{peerId}`.
 
 **Inbox liveness.** WS subscriptions mirror the group-summary pattern:
 
   - `watch_dm_inbox` / `unwatch_dm_inbox` — caller subscribes to user-scoped inbox events. No payload — the inbox is implicitly the caller's.
   - `dm_summary_update` — emitted per affected conversation when a new message lands, when the caller marks-read or archives, or when an accepted request promotes a request into a thread. Payload mirrors `group_summary_update`: `peerId`, last-message preview, `lastReadAt`, `unreadCount`, `archived`.
+  - `dm_read_receipt` — emitted into `dm:{sortedA}:{sortedB}` after either participant marks the thread read. Payload is `readerId`, `peerId`, and ISO `lastReadAt`, where `peerId` is the other participant from the reader's perspective.
 
 **Real-time message delivery.** `ChatGateway` exposes `join_dm` / `leave_dm` / `send_dm`. Joining is per pair, requires the caller (gateway rejects self-pair), and is not gated by `dm_permission` — the dm room exists regardless of policy. `send_dm` invokes `SendDirectMessageUseCase` and branches on the result:
 
@@ -250,7 +251,7 @@ These three write paths grandfather active conversations naturally: both partici
   4. **WS `send_dm` broadcasts the use case result verbatim** — when routing returns a request, that shape is currently emitted as `new_direct_message`. The fix is to branch on `result.type` and emit `dm_request_sent` to the sender's socket instead.
   5. ~~**`dm_request_accepted` WS event** is not implemented.~~ **Closed (DM-TASK-C)**. After the accept transaction commits, `ChatGateway.emitDmRequestAccepted(senderId, payload)` iterates connected sockets and emits `dm_request_accepted` to every socket of the original sender (multi-device safe). Recipient learns of the materialized message via the HTTP response.
   6. **`watch_dm_inbox` / `unwatch_dm_inbox` / `dm_summary_update` WS events** are not implemented.
-  7. **`mark_dm_read` WS event** is not implemented.
+  7. ~~**`mark_dm_read` WS event + read receipt** are not implemented.~~ **Closed (Cluster B2).** `mark_dm_read` and `POST /dm/:peerId/read` both advance `last_read_at`, emit `dm_summary_update` to the reader's inbox room, emit `dm_read_receipt` to the sorted DM room, and clear the reader's push digest.
   8. ~~**Deactivated-peer placeholder substitution**~~ **Closed (DM-TASK-G)**. `listInbox` (peer + last-sender), `listConversation` / `findByIdWithSender` (via `baseQuery()`), `listRequests` (sender), `getDmSummary` (last-sender), and `acceptRequestAtomic`'s final SELECT (sender) all substitute `'Conta desativada'` + null avatar when joined `users.is_active = false`. `GetDirectMessageHistoryUseCase` no longer 404s on inactive recipients so the inbox-tap UX works end-to-end (send still 404s per spec). `listExceptions` is intentionally excluded — it filters inactive peers out (per Gap 3 spec, the row remains but is hidden from the manual exception list).
   9. ~~**DM push fan-out** is not implemented.~~ **Closed (DM-TASK-F).** Direct DM messages trigger best-effort push to the recipient's enabled devices; requests and accepted-request materialization remain push-free.
   10. ~~**Server-side push-vs-WS dedup** is not implemented.~~ **Closed (DM-TASK-F).** The server skips a DM push when the recipient has a socket in `dm:{a}:{b}`.

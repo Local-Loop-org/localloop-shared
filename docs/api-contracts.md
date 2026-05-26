@@ -876,6 +876,24 @@ Errors:
   404 RECIPIENT_NOT_FOUND  — user missing or inactive
 ```
 
+### Mark DM read
+
+```
+POST /dm/:userId/read
+Auth: required
+
+Response 204 (no body)
+
+notes: advances the caller's dm_conversation_state.last_read_at for this peer,
+       emits dm_summary_update to the caller's user-scoped sockets, emits
+       dm_read_receipt into dm:{sortedCaller}:{sortedPeer}, and clears the
+       caller's push digest for conversationKey dm:{peerId}. This is the REST
+       equivalent of the mark_dm_read Socket.IO event.
+
+Errors:
+  400 DM_SELF_NOT_ALLOWED  — :userId equals the caller
+```
+
 ### Send DM
 
 ```
@@ -1104,8 +1122,10 @@ notes: same routing as POST /dm/:userId. Server branches on the use case
 event: mark_dm_read
 payload: { "peerId": string }
 notes: advances the caller's persisted dm_conversation_state.last_read_at and
-       emits a fresh dm_summary_update to the caller's user-scoped sockets.
-       Mirrors mark_group_read. [PLANNED — see architecture.md "Open gaps"]
+       emits a fresh dm_summary_update to the caller's user-scoped sockets,
+       emits dm_read_receipt into dm:{sortedCaller}:{sortedPeer}, and clears
+       the caller's push digest for conversationKey dm:{peerId}. Mirrors
+       POST /dm/:peerId/read.
 
 event: watch_dm_inbox
 payload: {}
@@ -1168,9 +1188,19 @@ trigger: send_dm or POST /dm/:userId resolved to a delivered message
          (result.type === 'message'). Acceptance of a pending request also
          emits this event into the dm room as part of the materialization.
 notes: only delivered to sockets joined to dm:{sortedA}:{sortedB}. Server is
-       responsible for never emitting a non-message payload on this channel;
-       see architecture.md "Open gaps" for the current send_dm code that does
-       not yet branch.
+       responsible for never emitting a non-message payload on this channel.
+
+event: dm_read_receipt
+payload:
+{
+  "readerId": string,
+  "peerId": string,
+  "lastReadAt": string
+}
+trigger: mark_dm_read or POST /dm/:peerId/read succeeds.
+notes: emitted into dm:{sortedReader}:{sortedPeer}; clients can update the
+       peer's read watermark without refetching history. The reader also gets
+       the event on any socket joined to the conversation.
 
 event: dm_request_sent
 payload: { "requestId": string }
@@ -1215,8 +1245,7 @@ payload:
 trigger: emitted after watch_dm_inbox, mark_dm_read, archive/unarchive, and
          on every new message in any of the caller's threads.
 notes: payload is caller-specific; unreadCount excludes messages sent by the
-       caller. Mirrors group_summary_update. [PLANNED — see architecture.md
-       "Open gaps"]
+       caller. Mirrors group_summary_update.
 
 event: group_summary_update
 payload:

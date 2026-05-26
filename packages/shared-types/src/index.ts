@@ -110,6 +110,7 @@ export const ChatSocketEvents = {
   MARK_DM_READ: 'mark_dm_read',
   NEW_MESSAGE: 'new_message',
   NEW_DIRECT_MESSAGE: 'new_direct_message',
+  DM_READ_RECEIPT: 'dm_read_receipt',
   DM_REQUEST_SENT: 'dm_request_sent',
   DM_REQUEST_ACCEPTED: 'dm_request_accepted',
   PRESENCE_UPDATE: 'presence_update',
@@ -178,6 +179,12 @@ export interface DirectMessage {
   mediaUrl: string | null;
   mediaType: MediaType | null;
   createdAt: string;
+}
+
+export interface DmReadReceipt {
+  readerId: string;
+  peerId: string;
+  lastReadAt: string;
 }
 
 export interface DmLastMessage {

@@ -12,13 +12,15 @@
 
 ## Current phase
 
-**Phase 4 DM flow shipped end-to-end on mobile except for DM presence and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: `useDmPresence(peerId)` to drive `DmChatScreen` header's online dot (currently `peerStatus={null}`); M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
+**Phase 4 DM flow shipped end-to-end on mobile except for DM presence, read-state UI, and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: `useDmPresence(peerId)` to drive `DmChatScreen` header's online dot (currently `peerStatus={null}`); `useDmReadState(peerId)` + bubble status icons; M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
 
 ---
 
 ## Last updated
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
+
+2026-05-26 — B2 DM read receipts implemented on `feat/dm-read-receipts` (shared + API). `@localloop/shared-types@2.3.0` adds `ChatSocketEvents.DM_READ_RECEIPT` and `DmReadReceipt`; API emits `dm_read_receipt { readerId, peerId, lastReadAt }` into the sorted DM room after `mark_dm_read` or `POST /dm/:userId/read` succeeds. Both paths advance `dm_conversation_state.last_read_at`, emit caller-scoped `dm_summary_update`, and clear the caller's DM push digest. Mobile read-state rendering remains deferred to B5/B6.
 
 2026-05-26 — B1 DM last-read exposure implemented on `feat/dm-last-read-exposure` (API) + `docs/dm-last-read-exposure` (shared docs). Confirmed `dm_conversation_state.last_read_at` already exists, so no migration was added. `GET /dm` now exposes caller-scoped `lastReadAt` beside `unreadCount`; `GET /dm/:userId` exposes top-level `lastReadAt` and `peerLastReadAt` to seed read-receipt UI. Read-state exposure is gated to delivered, non-deleted DM threads; absent state rows serialize as `null`.
 
@@ -134,7 +136,7 @@ Absorbs **M3 push tap routing** from Phase 4 above. Completed routing/cleanup/de
 Absorbs **`useDmPresence(peerId)`** from Phase 4 above. Read receipts (sending/sent/read) and presence share the same WS subscription shape.
 
 - [x] B1 — **API**: confirmed `dm_conversation_state.last_read_at` exists per DM participant; no migration needed. `GET /dm` exposes caller `lastReadAt`, and `GET /dm/:userId` exposes caller `lastReadAt` + `peerLastReadAt`.
-- [ ] B2 — **API**: emit `dm_read_receipt` over WS when peer calls `POST /dm/:peerId/read` or sends `dm_mark_read`. `SendDirectMessageUseCase` emits `sent` on persist.
+- [x] B2 — **Shared + API**: `@localloop/shared-types@2.3.0` adds `dm_read_receipt`; API emits it over WS when a participant calls `POST /dm/:peerId/read` or sends `mark_dm_read`. `new_direct_message` remains the persisted "sent" signal.
 - [ ] B3 — **Shared**: extend `DirectMessage` with `status: 'sending' | 'sent' | 'read'` (or derive client-side from `lastReadAt` — settle during impl).
 - [ ] B4 — **Mobile**: `useDmPresence(peerId)` hook → header dot in `DmChatLayout` (replaces hard-coded `peerStatus={null}`). *(was Phase 4)*
 - [ ] B5 — **Mobile**: `useDmReadState(peerId)` hook → bubble checkmark state.
