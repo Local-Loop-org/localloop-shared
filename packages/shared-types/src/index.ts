@@ -177,17 +177,27 @@ export interface GroupSummaryUpdate {
   unreadCount: number;
 }
 
-export interface DirectMessage {
+export interface ChatMessage {
   id: string;
   senderId: string;
   senderName: string;
   senderAvatarUrl: string | null;
-  recipientId: string;
   content: string | null;
   mediaUrl: string | null;
   mediaType: MediaType | null;
   createdAt: string;
 }
+
+export type GroupMessage = ChatMessage;
+
+export interface GroupMessageHistoryResponse {
+  data: GroupMessage[];
+  next_cursor: string | null;
+}
+
+export type DirectMessage = ChatMessage & {
+  recipientId: string;
+};
 
 export type DirectMessageStatus = 'sending' | 'sent' | 'read' | 'error';
 
