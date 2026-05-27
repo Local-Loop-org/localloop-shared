@@ -105,11 +105,14 @@ export const ChatSocketEvents = {
   JOIN_DM: 'join_dm',
   LEAVE_DM: 'leave_dm',
   SEND_DM: 'send_dm',
+  WATCH_DM_PRESENCE: 'watch_dm_presence',
+  UNWATCH_DM_PRESENCE: 'unwatch_dm_presence',
   WATCH_DM_INBOX: 'watch_dm_inbox',
   UNWATCH_DM_INBOX: 'unwatch_dm_inbox',
   MARK_DM_READ: 'mark_dm_read',
   NEW_MESSAGE: 'new_message',
   NEW_DIRECT_MESSAGE: 'new_direct_message',
+  DM_PRESENCE_UPDATE: 'dm_presence_update',
   DM_READ_RECEIPT: 'dm_read_receipt',
   DM_REQUEST_SENT: 'dm_request_sent',
   DM_REQUEST_ACCEPTED: 'dm_request_accepted',
@@ -140,6 +143,11 @@ export interface NearbyGroup {
 export interface PresenceUpdate {
   groupId: string;
   count: number;
+}
+
+export interface DmPresenceUpdate {
+  peerId: string;
+  online: boolean;
 }
 
 export interface MyGroupLastMessage {
