@@ -12,13 +12,15 @@
 
 ## Current phase
 
-**Phase 4 DM flow shipped end-to-end on mobile except for read-state UI and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M3 peer presence, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: `useDmReadState(peerId)` + bubble status icons; M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
+**Phase 4 DM flow shipped end-to-end on mobile except for final read-state icons and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M3 peer presence, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: bubble status icons; M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
 
 ---
 
 ## Last updated
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
+
+2026-05-27 — B5 DM read-state hook implemented on `feat/dm-read-state` (mobile). Mobile now preserves `lastReadAt`/`peerLastReadAt` from `GET /dm/:peerId`, shares the DM history React Query cache between chat and read-state consumers, adds `useDmReadState(peerId)`, derives own-message statuses (`sending` for optimistic temp messages, `sent` for persisted messages not covered by the peer watermark, `read` for persisted messages covered by `peerLastReadAt`), and applies fresh `dm_read_receipt` watermarks in realtime. `DmChatScreen` passes the status map through `DmChatLayout` into own bubbles; B6 still owns the final visible checkmark/icon rendering.
 
 2026-05-27 — TD-13 RealtimeModule refactor implemented on `refactor/realtime-module` (API). `ChatGateway` now lives in `RealtimeModule`, not `MessagesModule`; `MessagesModule` and `DirectMessagesModule` no longer import each other or use `forwardRef`. `DirectMessagesController` emits typed in-process events through `RealtimeEventsModule` for HTTP-triggered realtime side effects, and `RealtimeModule` handles those events. Gateway internals are split into focused realtime services for group presence, group summaries, group messages, DM presence, DM inbox, and DM messages. Socket.IO namespace/event/room contracts stay unchanged. API now consumes `@localloop/shared-types@^2.5.0` so DM presence symbols resolve in clean CI installs.
 
@@ -48,7 +50,7 @@
 
 ## In progress
 
-DM flow now sits on two concrete gaps: (1) **B5/B6 read-state UI** — consume the existing `peerLastReadAt`/`dm_read_receipt` contract and render bubble status icons; (2) **M5 Maestro E2E** — zero `.yaml` flows in the mobile repo. Once those land the DM track closes apart from Phase 5 polish. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
+DM flow now sits on two concrete gaps: (1) **B6 read-state icon rendering** — the status map exists on own DM bubbles, but the final checkmark/icon treatment still needs the claude design assets; (2) **M5 Maestro E2E** — zero `.yaml` flows in the mobile repo. Once those land the DM track closes apart from Phase 5 polish. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
 
 ---
 
@@ -144,7 +146,7 @@ Absorbs **`useDmPresence(peerId)`** from Phase 4 above. Read receipts (sending/s
 - [x] B2 — **Shared + API**: `@localloop/shared-types@2.3.0` adds `dm_read_receipt`; API emits it over WS when a participant calls `POST /dm/:peerId/read` or sends `mark_dm_read`. `new_direct_message` remains the persisted "sent" signal.
 - [x] B3 — **Shared**: `@localloop/shared-types@2.4.0` adds `DirectMessageStatus`, `DirectMessageWithStatus`, and `DirectMessageHistoryResponse`; status is derived client-side from optimistic state + `peerLastReadAt`, with no API `status` wire field.
 - [x] B4 — **Shared + API + Mobile**: `useDmPresence(peerId)` hook → header dot in `DmChatLayout`; API provides read-only `watch_dm_presence` / `dm_presence_update`. *(was Phase 4)*
-- [ ] B5 — **Mobile**: `useDmReadState(peerId)` hook → bubble checkmark state.
+- [x] B5 — **Mobile**: `useDmReadState(peerId)` hook → bubble checkmark state.
 - [ ] B6 — **Mobile**: `DmMessageBubble` renders status icon per claude design assets (shipped together with the reply assets).
 
 #### Cluster C · Message lifecycle: reply + delete + edit (full-stack)
