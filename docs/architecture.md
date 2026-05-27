@@ -163,6 +163,34 @@ Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicate
 
 - Socket.IO with `@socket.io/redis-adapter` for multi-instance pub-sub.
 - Room naming: `group:{groupId}` and `dm:{userId1}:{userId2}` (sorted IDs).
+- Public realtime contract remains one namespace, `/chat`. Do not split DMs
+  into a second namespace unless a new ADR explicitly changes the contract.
+- Backend ownership after TD-13:
+
+```text
+MessagesModule          -> AuthModule, GroupsModule, TypeOrmModule
+DirectMessagesModule    -> AuthModule, GroupsModule, RealtimeEventsModule, TypeOrmModule
+RealtimeModule          -> AuthModule, GroupsModule, NotificationsModule,
+                           MessagesModule, DirectMessagesModule,
+                           RealtimeEventsModule
+RealtimeEventsModule    -> no feature modules
+```
+
+- `RealtimeModule` owns `ChatGateway` and Socket.IO `/chat` wiring.
+  `ChatGateway` should stay thin: socket auth, `@SubscribeMessage` methods,
+  minimal payload validation, connection lifecycle hooks, and delegation.
+- Realtime behavior lives in focused presentation services:
+  `GroupPresenceRealtimeService`, `GroupSummaryRealtimeService`,
+  `GroupMessageRealtimeService`, `DmPresenceRealtimeService`,
+  `DmInboxRealtimeService`, and `DmMessageRealtimeService`.
+- HTTP controllers must not inject `ChatGateway`. When a REST mutation needs
+  realtime fan-out, emit a typed in-process event through
+  `RealtimeEventsService`; `RealtimeModule` subscribes and routes the effect.
+  Current event types are `dm_request_accepted`, `dm_summary_requested`, and
+  `dm_read`.
+- `MessagesModule` and `DirectMessagesModule` must not import each other or use
+  `forwardRef` for realtime wiring. If a future feature reintroduces that edge,
+  route the side effect through `RealtimeEventsModule` or a dedicated port.
 
 ### Direct messages (Phase 4)
 
@@ -212,7 +240,7 @@ These three write paths grandfather active conversations naturally: both partici
   - `last_read_at` drives `unreadCount` in `/dm`. The query excludes the caller's own sends and uses `COALESCE(last_read_at, '-infinity')`, so an unread row defaults to "everything from the peer is unread".
   - `archived` is a hide-from-main-inbox flag. **It is independent of read state** — an archived thread still accumulates `unreadCount` when the peer sends, so a future "Archived (N)" filter chip can resurface re-engagement.
   - **Lifecycle (intended)**: the **sender's** row is created on send with `last_read_at = now()` (so the sender never sees their own sends as unread). The **recipient's** row is created on first `mark_dm_read` or on first `archive`. Until then, the recipient's row absence is read as `last_read_at = -infinity` and unread is honestly N.
-  - **Mark-read**: WS `mark_dm_read { peerId }` and REST `POST /dm/:peerId/read` mirror `mark_group_read`. Side effect: upserts `last_read_at = now()`, emits `dm_summary_update` to the caller's user-scoped sockets so the badge clears across devices, emits `dm_read_receipt { readerId, peerId, lastReadAt }` into the sorted DM room, and clears the caller's push digest for `dm:{peerId}`.
+  - **Mark-read**: WS `mark_dm_read { peerId }` and REST `POST /dm/:peerId/read` mirror `mark_group_read`. Side effect: upserts `last_read_at = now()`, emits `dm_summary_update` to the caller's user-scoped sockets so the badge clears across devices, emits `dm_read_receipt { readerId, peerId, lastReadAt }` into the sorted DM room, and clears the caller's push digest for `dm:{peerId}`. The REST path requests those side effects through `RealtimeEventsService`, not by injecting `ChatGateway`.
 
 **Inbox liveness.** WS subscriptions mirror the group-summary pattern:
 
@@ -225,7 +253,7 @@ These three write paths grandfather active conversations naturally: both partici
   - `result.type === 'message'` → broadcast as `new_direct_message` into `dm:{sortedA}:{sortedB}`. The payload is always the message shape; clients never need to discriminate on `new_direct_message`.
   - `result.type === 'request'` → emit `dm_request_sent { requestId }` to the **sender's own socket** only (no room broadcast). Acts as an acknowledgement and lets the sender's UI flip to "pending request" state.
 
-**Acceptance feedback.** When B accepts A's request, the server emits `dm_request_accepted` to A's user-scoped sockets carrying the materialized message payload. A's mobile updates the inbox + lifts any pending UI state. No DM push notification is fired on acceptance — only on subsequent new messages.
+**Acceptance feedback.** When B accepts A's request, the server emits `dm_request_accepted` to A's user-scoped inbox room carrying the materialized message payload. The HTTP controller emits a `dm_request_accepted` realtime event after the accept transaction; `RealtimeModule` routes it to the `/chat` gateway. A's mobile updates the inbox + lifts any pending UI state. No DM push notification is fired on acceptance — only on subsequent new messages.
 
 **Deactivated peers.** When a peer's `users.is_active = false`:
 
@@ -243,14 +271,15 @@ These three write paths grandfather active conversations naturally: both partici
 
 **Privacy.** DM payloads expose `peerName` / `senderName` and avatar URLs. User coordinates and geohash are never returned — DMs are identity-revealing but not location-revealing. The user-to-user distance rule (see "Location privacy") applies: distance from one DM participant to another is never computed or exposed.
 
-**Open gaps — the spec above is the intended contract; the code is not yet aligned on these points.** Track and close before each affected surface ships.
+**Implementation notes and remaining gaps.** Open items must close before each
+affected surface ships; struck-through items are already aligned.
 
   1. **Implicit-add-on-direct-send is not implemented.** `SendDirectMessageUseCase` does not currently write to `dm_permission_exceptions` on successful direct delivery. Until added, abandoned threads accumulate one-sided imbalance that breaks on permission tightening.
   2. ~~**No accept/decline request endpoint.**~~ **Closed (DM-TASK-C)**. `POST /dm/requests/:requestId/accept` materializes the held message into `direct_messages` (preserving the original `created_at`), writes `dm_permission_exceptions(recipient → sender)`, eager-inits `dm_conversation_state` for the sender, and deletes the `dm_requests` row — all in one transaction. `POST /dm/requests/:requestId/decline` deletes the `dm_requests` row (idempotent). Non-recipients receive 404 (existence hidden).
   3. ~~**Manual exception add/revoke endpoints + profile UI** are not implemented.~~ **Endpoints closed (DM-TASK-D)**. `GET /users/me/dm-exceptions` (paginated list joined to `users`; inactive peers hidden), `PUT /users/me/dm-exceptions/:peerId` (idempotent UPSERT; self-pair → 400; missing/inactive peer → 404), `DELETE /users/me/dm-exceptions/:peerId` (idempotent; self-pair → 400; returns 204 even when no row matched). Profile UI is a mobile follow-up.
-  4. **WS `send_dm` broadcasts the use case result verbatim** — when routing returns a request, that shape is currently emitted as `new_direct_message`. The fix is to branch on `result.type` and emit `dm_request_sent` to the sender's socket instead.
-  5. ~~**`dm_request_accepted` WS event** is not implemented.~~ **Closed (DM-TASK-C)**. After the accept transaction commits, `ChatGateway.emitDmRequestAccepted(senderId, payload)` iterates connected sockets and emits `dm_request_accepted` to every socket of the original sender (multi-device safe). Recipient learns of the materialized message via the HTTP response.
-  6. **`watch_dm_inbox` / `unwatch_dm_inbox` / `dm_summary_update` WS events** are not implemented.
+  4. ~~**WS `send_dm` broadcasts the use case result verbatim**~~ **Closed (DM-TASK-B).** The gateway branches on `result.type`: materialized messages emit `new_direct_message`; requests emit `dm_request_sent { requestId }` to the sender socket only.
+  5. ~~**`dm_request_accepted` WS event** is not implemented.~~ **Closed (DM-TASK-C, refactored by TD-13).** After the accept transaction commits, the controller emits a realtime event; `RealtimeModule` fans out `dm_request_accepted` to the sender's `dm_inbox:user:{senderId}` room. Recipient learns of the materialized message via the HTTP response.
+  6. ~~**`watch_dm_inbox` / `unwatch_dm_inbox` / `dm_summary_update` WS events** are not implemented.~~ **Closed (DM-TASK-E).** The `/chat` gateway supports user-scoped DM inbox subscriptions and emits `dm_summary_update` from DM send, accept, mark-read, archive, and unarchive paths.
   7. ~~**`mark_dm_read` WS event + read receipt** are not implemented.~~ **Closed (Cluster B2).** `mark_dm_read` and `POST /dm/:peerId/read` both advance `last_read_at`, emit `dm_summary_update` to the reader's inbox room, emit `dm_read_receipt` to the sorted DM room, and clear the reader's push digest.
   8. ~~**Deactivated-peer placeholder substitution**~~ **Closed (DM-TASK-G)**. `listInbox` (peer + last-sender), `listConversation` / `findByIdWithSender` (via `baseQuery()`), `listRequests` (sender), `getDmSummary` (last-sender), and `acceptRequestAtomic`'s final SELECT (sender) all substitute `'Conta desativada'` + null avatar when joined `users.is_active = false`. `GetDirectMessageHistoryUseCase` no longer 404s on inactive recipients so the inbox-tap UX works end-to-end (send still 404s per spec). `listExceptions` is intentionally excluded — it filters inactive peers out (per Gap 3 spec, the row remains but is hidden from the manual exception list).
   9. ~~**DM push fan-out** is not implemented.~~ **Closed (DM-TASK-F).** Direct DM messages trigger best-effort push to the recipient's enabled devices; requests and accepted-request materialization remain push-free.
@@ -263,7 +292,7 @@ These three write paths grandfather active conversations naturally: both partici
 - Expo Push is the first provider, but API code depends on `IPushNotificationProvider` and stores provider-neutral device rows (`provider`, `platform`, `token`, `installationId`).
 - `users.push_permission_status` is user-level preference state: `null` means not asked, `granted` means registered, `denied` means OS denied, and `disabled` means in-app opt-out.
 - Mobile asks from Home only while status is `null`; once the user grants or denies permission, future changes happen from Profile only.
-- Group message fan-out runs after successful `/chat` `send_message` delivery. `ChatGateway` emits `new_message`, then fires a best-effort notification use case that excludes the sender and users currently connected to `group:{groupId}`.
+- Group message fan-out runs after successful `/chat` `send_message` delivery. `GroupMessageRealtimeService` emits `new_message`, then fires a best-effort notification use case that excludes the sender and users currently connected to `group:{groupId}`.
 - Notification delivery uses enabled device rows for active group members whose user-level push permission is `granted`. Immediate Expo `DeviceNotRegistered` ticket errors disable the affected token.
 - DM message fan-out runs after successful `/chat` `send_dm` delivery when the result is a materialized message. Request sends and request acceptance do not fire push notifications.
 - Mobile notification routing handles group and DM taps, dismisses visible notifications for the open conversation, and suppresses foreground notifications when the open chat or a seen WS message already covers the payload.

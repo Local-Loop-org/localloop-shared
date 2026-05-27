@@ -273,6 +273,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 - ~~TD-07~~ No unit tests exist for any use case — **Fixed (Phase 1 scope)**: all Phase 1 use cases and mobile screens have unit coverage. Integration tests still pending under the testing backlog.
 - ~~TD-08~~ `UpdateUserLocationUseCase` has no <300m no-op — **Closed**: `updateLocation` is now called only once (onboarding); no repeated writes to deduplicate. Location freshness strategy moved to Phase 3 Slice 3.
 - ~~TD-10~~ Auth response under-specifies the User shape — **Fixed (`feat/td-10-auth-user-shape`)**: `@localloop/shared-types@1.3.0` exports `UserSummary`; backend `UserSummaryDto` and `UserProfileDto` both `implements UserSummary` (auth response now carries `dmPermission` + `createdAt`); mobile `User` interface re-exports `UserSummary` (drops the 4 dead fields `providerId`/`geohash`/`isActive`/`lastSeenAt`) and `auth.api.ts:mapToAuthResponse` is a direct pass-through.
+- ~~TD-13~~ `MessagesModule` ↔ `DirectMessagesModule` cycle — **Fixed (`refactor/realtime-module`)**: `ChatGateway` is owned by `RealtimeModule`; `MessagesModule` exports only group-message use cases; `DirectMessagesModule` emits HTTP-triggered realtime side effects through `RealtimeEventsModule`; no `forwardRef` remains between Messages and DirectMessages. Gateway behavior is split across realtime services while `/chat` event names, room names, and payloads remain unchanged.
 
 ---
 

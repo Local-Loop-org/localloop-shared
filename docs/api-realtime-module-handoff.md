@@ -2,52 +2,34 @@
 
 ## Summary
 
-This backend job should be done by one focused API agent/session, separate from
-the mobile socket-manager job. It is large enough to deserve its own PR, but it
-does not need to be split further if the agent keeps the protocol unchanged and
-works in two commits:
+Status: **implemented** on API branch `refactor/realtime-module` / PR #25.
 
-1. Break the `MessagesModule` <-> `DirectMessagesModule` cycle by moving
-   `ChatGateway` to a new realtime owner and replacing HTTP-controller gateway
-   calls with a neutral realtime event bus.
-2. Extract gateway internals into focused realtime services until
-   `ChatGateway` is mostly Socket.IO routing glue.
+The backend refactor was completed as one focused API slice, separate from the
+mobile socket-manager work. The public Socket.IO protocol stayed unchanged:
+namespace `/chat`, `ChatSocketEvents.*`, room names, and payload shapes are
+compatible with the existing mobile app.
 
-Recommended branch: `refactor/realtime-module`.
+Implementation landed in three API commits:
+
+- `refactor(realtime): break chat module cycle`
+- `refactor(realtime): extract chat gateway services`
+- `fix(realtime): consume dm presence shared types`
 
 ## Current State
 
-- `MessagesModule` is effectively group messages, but it also owns
-  `ChatGateway`.
-- `ChatGateway` handles group chat, group presence, group summaries, DM send,
-  DM inbox, DM read receipts, DM presence, push digest cleanup, and push fan-out.
-- `MessagesModule` imports `forwardRef(() => DirectMessagesModule)` because
-  `ChatGateway` injects DM use cases/repositories.
-- `DirectMessagesModule` imports `forwardRef(() => MessagesModule)` because
-  `DirectMessagesController` injects `ChatGateway` for HTTP-triggered realtime
-  effects:
-  - request accepted fan-out
-  - DM summary fan-out after accept/archive/unarchive
-  - read receipt + summary + push digest cleanup after REST mark-read
-- This is TD-13. `forwardRef` only hides the boot-order issue; it does not fix
-  the architecture.
-
-## Target Architecture
-
-- Keep the public Socket.IO namespace and shared event names unchanged:
-  `/chat`, `ChatSocketEvents.*`, room names, and payload shapes must remain
-  compatible with the current mobile app.
 - `MessagesModule` owns only group-message HTTP/use-case/repository concerns.
 - `DirectMessagesModule` owns only DM HTTP/use-case/repository concerns.
-- New `RealtimeModule` owns `ChatGateway` and Socket.IO `/chat` wiring.
-- New neutral `RealtimeEventsModule` owns an in-process typed event bus used by
+- `RealtimeModule` owns `ChatGateway` and Socket.IO `/chat` wiring.
+- `RealtimeEventsModule` owns an in-process typed event bus used by
   HTTP controllers to request realtime side effects without importing the
   gateway.
 - `AppModule` imports `MessagesModule`, `DirectMessagesModule`, and
   `RealtimeModule`.
 - No `forwardRef` remains between `MessagesModule` and `DirectMessagesModule`.
+- `@localloop/shared-types@^2.5.0` is required by the API so DM presence events
+  are present during clean CI installs.
 
-Expected module dependencies:
+Module dependencies:
 
 ```text
 MessagesModule          -> AuthModule, GroupsModule, TypeOrmModule
@@ -58,7 +40,35 @@ RealtimeModule          -> AuthModule, GroupsModule, NotificationsModule,
 RealtimeEventsModule    -> no feature modules
 ```
 
-## Implementation Steps
+## Realtime Services
+
+`ChatGateway` is now mostly Socket.IO routing glue:
+
+- socket auth middleware
+- `@SubscribeMessage(...)` methods
+- minimal payload validation
+- connection/disconnection lifecycle hooks
+- delegation to focused services
+
+Focused services:
+
+- `GroupPresenceRealtimeService`
+- `GroupSummaryRealtimeService`
+- `GroupMessageRealtimeService`
+- `DmPresenceRealtimeService`
+- `DmInboxRealtimeService`
+- `DmMessageRealtimeService`
+
+HTTP-triggered DM realtime effects flow through
+`RealtimeEventsService` -> `DirectMessageRealtimeEventHandler` -> `ChatGateway`.
+Current event types are `dm_request_accepted`, `dm_summary_requested`, and
+`dm_read`.
+
+## Historical Implementation Steps
+
+Retained for audit only. These steps are complete on
+`refactor/realtime-module`; future realtime work should follow the Current
+State / Realtime Services sections above.
 
 ### 1. Create A Neutral Realtime Event Bus
 
@@ -213,7 +223,7 @@ Keep `ChatGateway` responsible for:
 
 Do not split into a `/dm` namespace in this task.
 
-## Acceptance Criteria
+## Implemented Criteria
 
 - `MessagesModule` has no dependency on `DirectMessagesModule`.
 - `DirectMessagesModule` has no dependency on `MessagesModule`.
@@ -225,9 +235,9 @@ Do not split into a `/dm` namespace in this task.
 - Group chat, group presence, group summaries, DM chat, DM inbox, DM read
   receipts, DM presence, and push digest cleanup keep their behavior.
 
-## Tests
+## Validation
 
-Run at minimum:
+The implementation branch was validated with:
 
 ```bash
 npm test -- chat.gateway --runInBand
@@ -235,7 +245,7 @@ npm test -- direct-messages.controller --runInBand
 npm run build
 ```
 
-If time allows, run full API Jest:
+Full API Jest also passed on the implementation branch:
 
 ```bash
 npm test -- --runInBand
