@@ -2,9 +2,10 @@
 
 ## Summary
 
-This mobile job should be done by a separate focused mobile agent/session after
-the backend realtime-module cleanup is planned or underway. It is a medium-size
-mobile refactor and should ship as its own PR.
+This mobile job should be done by a separate focused mobile agent/session. The
+backend TD-13 RealtimeModule cleanup is already complete on API branch
+`refactor/realtime-module`, and the public `/chat` protocol stayed unchanged.
+This is a medium-size mobile refactor and should ship as its own PR.
 
 Goal: replace screen/hook-owned Socket.IO connections with one authenticated
 `/chat` socket per logged-in app session. Existing hooks should register
