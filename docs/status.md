@@ -12,13 +12,15 @@
 
 ## Current phase
 
-**Phase 4 DM flow shipped end-to-end on mobile except for final read-state icons and E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M3 peer presence, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented. **Open DM work**: bubble status icons; M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
+**Phase 4 DM flow shipped end-to-end on mobile except for E2E.** DM-TASK-A through DM-TASK-H closed; S1/S2/S3 (API), M1, M2, M3 peer presence, M4 shipped on mobile; DM-exception-candidates contract + API live; Cluster A push tap routing/cleanup/dedup, payload metadata, and immediate per-chat digest replacement are implemented; Cluster B is fully closed (B6 bubble status icons render checkmark glyphs on own DM bubbles). Group chat now also renders `sending`/`sent` indicators on own bubbles (subset of Cluster E — `error`/retry still pending). **Open DM work**: M5 Maestro E2E; Phase 5 DM polish. **Other open work**: Phase 3 Slice 3 message permissions (API enforcement + mobile gating), GroupMembersScreen redesign, Phase 3 Slice 2 media upload, HOME-12 Map, Phase 2 Redis cache.
 
 ---
 
 ## Last updated
 
 > Only the latest entries live here. Prior entries are archived in [`history.md`](./history.md).
+
+2026-05-28 — B6 closed + group bubble send-status shipped on `feat/group-bubble-send-status` (mobile + shared docs). **B6**: the DM bubble status pipeline (hook → layout → `ChatThread` → `OwnBubble` → `MessageStatusIndicator`) was already wired end-to-end in commits 4608143/eb10e59/3579f3a; only the doc needed closing. **Groups**: `useGroupChat` now also derives `messageStatuses: Record<id, 'sending' | 'sent'>` (temp id prefix → `'sending'`, persisted own messages → `'sent'`); `GroupChatLayoutProps` gains `messageStatuses` and forwards into `ChatThread`. No shared-types bump — status stays mobile-derived, same as B3 decided for DM. Tests: bubble-level rendering proofs (each glyph) added under `Bubble.test.tsx`; hook-level derivation + reconciliation tests added under `useGroupChat.test.ts` (404/404 pass). `MessageStatusIndicator` got `testID="own-status-sent"`/`own-status-read"` for assertion access (no logic change). The `'error'` half of group bubble status — failed sends + retry — stays deferred to Cluster E.
 
 2026-05-27 — DM/Group redesign components wired into production on `feat/dm-redesign-components` (mobile). The shared chat primitives shipped earlier in this branch (`ChatThread`, `ChatComposer`, `SwipeableBubble`, `QuotedReply`, `ReplyPreviewChip`, `MessageStatusIndicator`, `FailedMessageRow`, `FailedMessageWarning`, `TypingBubble`, `DmActionSheet`, `GroupActionSheet`, `DmRequestBanner`, `DmRequestComposer`) now drive the production `DmChatLayout` and `GroupChatLayout`. DM: `Alert.alert`-based archive flow replaced by the bottom action sheet (added an `archive` item to `DmActionSheet` whose label flips between "Arquivar conversa" / "Desarquivar conversa"); mute/clear/block/report items render but are no-op until backend wires up. Group: the header `users` button is gone — Members now lives inside `GroupActionSheet` (Ver detalhes / Membros / Silenciar / Sair / Denunciar); only Ver detalhes + Membros are wired, the rest close-only. Layout files lost ~280 LOC of dup bubble/composer styles. Mockup screens deleted; `HomeTabs.tsx` restored to `InboxScreen` + `MapScreen`. Tests: 396/396 pass; typecheck clean.
 
@@ -52,7 +54,7 @@
 
 ## In progress
 
-DM flow now sits on two concrete gaps: (1) **B6 read-state icon rendering** — the status map exists on own DM bubbles, but the final checkmark/icon treatment still needs the claude design assets; (2) **M5 Maestro E2E** — zero `.yaml` flows in the mobile repo. Once those land the DM track closes apart from Phase 5 polish. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
+DM flow's last open task is **M5 Maestro E2E** (zero `.yaml` flows in the mobile repo). Once that lands the DM track closes apart from Phase 5 polish. Group chat now also renders `sending`/`sent` status icons on own bubbles; the `'error'`/retry half is deferred to Cluster E. Phase 3 Slice 3 message permissions also mid-flight: shared enum published (step 1/3); API migration + `SendMessageUseCase` enforcement (step 2/3) and mobile composer gating (step 3/3) remain. Other candidates: GroupMembersScreen redesign, HOME-12 Map, Phase 3 Slice 2 media upload, Phase 2 Redis cache.
 
 ---
 
@@ -149,7 +151,7 @@ Absorbs **`useDmPresence(peerId)`** from Phase 4 above. Read receipts (sending/s
 - [x] B3 — **Shared**: `@localloop/shared-types@2.4.0` adds `DirectMessageStatus`, `DirectMessageWithStatus`, and `DirectMessageHistoryResponse`; status is derived client-side from optimistic state + `peerLastReadAt`, with no API `status` wire field.
 - [x] B4 — **Shared + API + Mobile**: `useDmPresence(peerId)` hook → header dot in `DmChatLayout`; API provides read-only `watch_dm_presence` / `dm_presence_update`. *(was Phase 4)*
 - [x] B5 — **Mobile**: `useDmReadState(peerId)` hook → bubble checkmark state.
-- [ ] B6 — **Mobile**: `DmMessageBubble` renders status icon per claude design assets (shipped together with the reply assets).
+- [x] B6 — **Mobile**: `DmMessageBubble` renders status icon per claude design assets. Shipped end-to-end on `feat/dm-redesign-components` (rendering) + `feat/group-bubble-send-status` (doc close-out + bubble-level rendering tests).
 
 #### Cluster C · Message lifecycle: reply + delete + edit (full-stack)
 
@@ -188,7 +190,7 @@ Kept separate from C: new table, own endpoints, own picker UI. Ships last becaus
 Universal to DM + group chat. Today the optimistic message disappears on a rejected `useSendMessage` / `useSendDirectMessage` mutation and the user has no signal that the send failed or way to retry — claude design assets now cover the failed bubble state + retry affordance. Small surface, ships any time; a candidate to land **before** A because it's the most user-visible gap in the chat surface today.
 
 - [ ] E1 — **Shared (if needed)**: confirm both `SendMessage` payloads already accept a stable `clientMessageId` for idempotent retry. If not, add it (minor bump) — the optimistic bubble and the server response must share the id so retry can replace the failed bubble in place. *(verify against current `useGroupChat` / `useDmChat` first — the optimistic path likely already carries this for dedup.)*
-- [ ] E2 — **Mobile**: extend the optimistic message shape with `sendStatus: 'sending' | 'sent' | 'failed'`. *Naming note*: settle the union name during impl — overlaps with Cluster B's `status: 'sending' | 'sent' | 'read'` for DMs. Likely outcome: one `sendStatus` for delivery, separate `readStatus` for DM read-receipts. Failed is universal (DM + group); read is DM-only.
+- [~] E2 — **Mobile**: extend the optimistic message shape with `sendStatus: 'sending' | 'sent' | 'failed'`. *Naming note*: settle the union name during impl — overlaps with Cluster B's `status: 'sending' | 'sent' | 'read'` for DMs. Likely outcome: one `sendStatus` for delivery, separate `readStatus` for DM read-receipts. Failed is universal (DM + group); read is DM-only. **Partial**: `sending`/`sent` half is already wired for both DM (via `useDmReadState`) and group (via `useGroupChat.messageStatuses` on `feat/group-bubble-send-status`). E2 remaining work is just the `failed` state — which is gated on E1 (`clientMessageId`) and a real failure signal.
 - [ ] E3 — **Mobile**: when the send mutation rejects (HTTP error, WS ack timeout, or explicit server error), mark the optimistic bubble `failed` instead of removing it from the React Query cache; keep it pinned to its original position in the list.
 - [ ] E4 — **Mobile**: render the failed bubble per claude design assets — failure colour treatment, "Não enviada" / "Falha ao enviar" label, tappable retry icon.
 - [ ] E5 — **Mobile**: tap retry → re-fire the same mutation with the same `clientMessageId` + content; flip the bubble back to `sending` while in flight; on success swap the failed bubble out for the server message (same id so the swap is automatic).
