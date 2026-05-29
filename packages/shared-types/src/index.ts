@@ -188,6 +188,7 @@ export interface ChatMessageReplyTo {
 
 export interface ChatMessage {
   id: string;
+  clientMessageId: string | null;
   senderId: string;
   senderName: string;
   senderAvatarUrl: string | null;
