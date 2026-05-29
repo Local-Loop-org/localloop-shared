@@ -114,6 +114,8 @@ export const ChatSocketEvents = {
   NEW_DIRECT_MESSAGE: 'new_direct_message',
   MESSAGE_DELETED: 'message_deleted',
   DIRECT_MESSAGE_DELETED: 'direct_message_deleted',
+  MESSAGE_EDITED: 'message_edited',
+  DIRECT_MESSAGE_EDITED: 'direct_message_edited',
   DM_PRESENCE_UPDATE: 'dm_presence_update',
   DM_READ_RECEIPT: 'dm_read_receipt',
   DM_REQUEST_SENT: 'dm_request_sent',
@@ -242,6 +244,23 @@ export interface DirectMessageDeleted {
   senderId: string;
   recipientId: string;
   deletedBy: string;
+}
+
+export interface MessageEdited {
+  messageId: string;
+  groupId: string;
+  content: string;
+  editedAt: string;
+  editedBy: string;
+}
+
+export interface DirectMessageEdited {
+  messageId: string;
+  senderId: string;
+  recipientId: string;
+  content: string;
+  editedAt: string;
+  editedBy: string;
 }
 
 export interface DmLastMessage {
