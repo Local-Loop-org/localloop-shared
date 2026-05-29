@@ -179,6 +179,13 @@ export interface GroupSummaryUpdate {
   unreadCount: number;
 }
 
+export interface ChatMessageReplyTo {
+  id: string;
+  authorId: string;
+  snippet: string | null;
+  isDeleted: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string;
@@ -188,6 +195,9 @@ export interface ChatMessage {
   mediaUrl: string | null;
   mediaType: MediaType | null;
   createdAt: string;
+  replyTo: ChatMessageReplyTo | null;
+  isDeleted: boolean;
+  editedAt: string | null;
 }
 
 export type GroupMessage = ChatMessage;
