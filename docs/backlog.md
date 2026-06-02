@@ -11,10 +11,13 @@
 - [ ] **HOME-8** Search polish: build the group-search screen and restore the Home search action; until then, remove/hide the current no-op search button on the next mobile branch that touches Home.
 - [ ] Mobile polish: use the shared members icon instead of the literal `MEM` shorthand wherever the UI refers to group members.
 - [ ] Moderation: soft-delete messages, ban flow
-- [ ] Rate limiting (NestJS ThrottlerModule)
 - [ ] LGPD: `DELETE /users/me` (account deletion, data erasure)
 - [ ] Load testing on WebSocket gateway
 - [ ] Fix: make `anchorLabel` optional on group creation — API allows null/empty; `CreateGroupScreen` removes the required-field validation on the anchor name input; existing groups with null label render the `AnchorType` display string as fallback everywhere a label is shown.
+
+### Security improvements
+
+- [ ] Chat write rate limiting: add shared HTTP + WebSocket throttling for message sends and edits. Prefer a Redis-backed limiter with per-user and per-conversation buckets (`group:<id>` / sorted `dm:<userA>:<userB>`) plus a tighter same-message edit cooldown. HTTP writes should return `429`; WS writes should emit `ChatSocketEvents.ERROR` with a rate-limit code. Protects DB writes, Redis/pubsub traffic, realtime room fan-out, push/digest side effects, and user-facing spam from authenticated abuse.
 
 ### DM-specific polish
 
