@@ -116,7 +116,9 @@ export const ChatSocketEvents = {
   DIRECT_MESSAGE_DELETED: 'direct_message_deleted',
   MESSAGE_EDITED: 'message_edited',
   DIRECT_MESSAGE_EDITED: 'direct_message_edited',
+  DM_TYPING: 'dm_typing',
   DM_PRESENCE_UPDATE: 'dm_presence_update',
+  DM_TYPING_UPDATE: 'dm_typing_update',
   DM_READ_RECEIPT: 'dm_read_receipt',
   DM_REQUEST_SENT: 'dm_request_sent',
   DM_REQUEST_ACCEPTED: 'dm_request_accepted',
@@ -152,6 +154,11 @@ export interface PresenceUpdate {
 export interface DmPresenceUpdate {
   peerId: string;
   online: boolean;
+}
+
+export interface DmTypingUpdate {
+  peerId: string;
+  isTyping: boolean;
 }
 
 export interface MyGroupLastMessage {
