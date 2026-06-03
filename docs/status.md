@@ -170,7 +170,7 @@ Universal to DM + group chat. Today the optimistic message disappears on a rejec
 - [x] E3 — **Mobile**: when the send mutation rejects (HTTP error, WS ack timeout, or explicit server error), mark the optimistic bubble `error` instead of removing it from the React Query cache; keep it pinned to its original position in the list.
 - [x] E4 — **Mobile**: render the error-state bubble per claude design assets — failure colour treatment, "Não enviada" / "Falha ao enviar" label, tappable retry icon.
 - [x] E5 — **Mobile**: tap retry → re-fire the same mutation with the same `clientMessageId` + content; flip the bubble back to `sending` while in flight; on success swap the error-state bubble out for the server message (same id so the swap is automatic).
-- [ ] E6 — **Mobile**: long-press on an error-state bubble offers a "Descartar" / "Cancelar envio" action that removes it from the cache without retrying — for the case where the user no longer wants to send what they typed.
+- [x] E6 — **Mobile**: long-press on an error-state bubble offers a "Descartar" / "Cancelar envio" action that removes it from the cache without retrying — for the case where the user no longer wants to send what they typed.
 
 ### Phase 5 — Polish, RQ migration tail, DevOps
 
