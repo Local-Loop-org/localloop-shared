@@ -230,7 +230,10 @@ Shipped via DM-TASK-F. On successful direct delivery, fires Expo push to recipie
 `InboxScreen` consumes `useDmConversations` + `useDmRequests` + `useDmInboxRealtime` (focus-gated). Active / unread / archived chips filter the conversations query; Solicitações renders `useDmRequests`. `dm.api.ts` + the archive/unarchive/accept/decline mutation hooks are all in place.
 
 #### M2 · Mobile: DmChatScreen ✅
-`DmChatScreen` registered as `StackRoutes.DmChat` in [AuthenticatedStack.tsx](../../localloop-mobile/src/presentation/navigation/AuthenticatedStack.tsx). `useDmChat(peerId)` drives history + WS subscription + optimistic send; the layout renders peer `Avatar`, display name, online-dot scaffolding (fed by `peerStatus`), bubbles + day separators + composer; archive/unarchive wired into the header's "more" action sheet. The header's `peerStatus` is currently hard-coded to `null` — pending `useDmPresence` in M3 (see `status.md`).
+`DmChatScreen` registered as `StackRoutes.DmChat` in [AuthenticatedStack.tsx](../../localloop-mobile/src/presentation/navigation/AuthenticatedStack.tsx). `useDmChat(peerId)` drives history + WS subscription + optimistic send; the layout renders peer `Avatar`, display name, presence status, bubbles + day separators + composer; archive/unarchive wired into the header's "more" action sheet.
+
+#### M3 · Mobile: peer presence + push routing ✅
+`useDmPresence(peerId)` subscribes to `watch_dm_presence`, consumes `dm_presence_update`, and feeds `DmChatLayout.peerStatus`. Push tap routing is also closed: mobile registers one notification response listener, handles cold-start responses, routes group/DM pushes, dismisses notifications matching the active chat, and suppresses foreground duplicates covered by the active chat or WebSocket message ids.
 
 #### M4 · Mobile: DM requests UX ✅
 `useAcceptDmRequest` + `useDeclineDmRequest` (both with optimistic removal + rollback) back the Solicitações rows. Optional "N pending requests" banner on Home is deferred unless we decide to add it.
@@ -242,14 +245,39 @@ Shipped via DM-TASK-F. On successful direct delivery, fires Expo push to recipie
 
 ---
 
-## RQ migration backlog (TD-09) — closed items
+## Chat features batch — closed clusters
+
+### Cluster B · DM peer state ✅
+
+- [x] DM read-state exposure: `GET /dm` carries caller `lastReadAt`; `GET /dm/:userId` carries caller `lastReadAt` + `peerLastReadAt`.
+- [x] `dm_read_receipt` contract and realtime emission shipped through `@localloop/shared-types`, API WS, and mobile cache updates.
+- [x] Mobile derives own-message states (`sending`, `sent`, `read`) from optimistic temps and peer read watermarks, then renders checkmark glyphs in own DM bubbles.
+- [x] DM peer presence (`watch_dm_presence` / `dm_presence_update`) feeds the DM chat header online state.
+
+### Cluster C · Message lifecycle: reply + delete + edit ✅
+
+- [x] Shared/API contracts expose `replyTo`, `isDeleted`, and `editedAt` on group and DM messages.
+- [x] Reply support validates same-conversation, non-deleted parent messages and sends `replyToMessageId` over HTTP/WS paths.
+- [x] Soft delete ships for group and DM messages with realtime delete events and durable tombstone history.
+- [x] Edit ships for own messages only, with HTTP routes, realtime edit events, mobile edit composer, optimistic swap/rollback, and the visible `editado` suffix.
+
+### Cluster E · Send-failure + retry ✅
+
+- [x] Mobile optimistic temps carry local-only `sendStatus: 'sending' | 'sent' | 'error'` and preserve stable `clientMessageId` echo reconciliation.
+- [x] Send failures and ack timeouts leave the bubble in place as `error` instead of removing it.
+- [x] Failed bubbles render the "Não enviada" / retry treatment, tap retry re-emits with the same `clientMessageId`, and long-press "Descartar" removes the failed temp from the React Query cache.
+
+---
+
+## TD-09 React Query migration — closed items
 
 Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history + optimistic `sendMessage`). Closed migrations:
 
 - [x] `GroupDiscoveryScreen` → `useQuery(['groups', 'nearby', "lat,lng"], ...)` — landed as `useNearbyGroups` in the Home redesign (the screen itself was renamed to `HomeScreen`)
 - [x] `GroupDetailScreen` → `useGroupDetail` (`useQuery`), `useGroupJoinRequests` (`useQuery`, privileged-gated), `useGroupMembers` (`useQuery`, limit 5) — all optimistic mutations too (join/leave/delete/ban/resolve/update)
-- [x] `GroupMembersScreen` → redesign + React Query: active members via `useInfiniteQuery(['groups', 'members', groupId, 'active'], ...)`, banned users via a matching query/API shape, join requests via `useGroupJoinRequests` for approval-required groups only, plus unban mutation.
+- [x] `GroupMembersScreen` → redesign + React Query: active members, banned users, and join requests are backed by query hooks, with ban/unban/role/resolve mutations. Full infinite pagination beyond the current 50-row view is deferred to Phase 5 polish.
 - [x] `GroupDetailScreen` pending requests → `useGroupJoinRequests` (`useQuery`, replaces `useFocusEffect` manual refetch)
+- [x] `GET /users/me` → `useUserProfile` (`useQuery`) and `PATCH /users/me` → `useUpdateUserProfile` (`useMutation` with optimistic cache update + rollback).
 
 ---
 
@@ -272,6 +300,7 @@ Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history 
 - ~~TD-06~~ No 401 interceptor on `apiClient` — **Fixed**: interceptor with refresh + retry queue + tests.
 - ~~TD-07~~ No unit tests exist for any use case — **Fixed (Phase 1 scope)**: all Phase 1 use cases and mobile screens have unit coverage. Integration tests still pending under the testing backlog.
 - ~~TD-08~~ `UpdateUserLocationUseCase` has no <300m no-op — **Closed**: `updateLocation` is now called only once (onboarding); no repeated writes to deduplicate. Location freshness strategy moved to Phase 3 Slice 3.
+- ~~TD-09~~ Mobile REST endpoints used ad-hoc `useState + useEffect` instead of React Query — **Closed**: server-state reads and visible mutations now use React Query hooks across the shipped mobile surfaces. The remaining Home open-group join issue is tracked as a focused UX fix in `status.md`; large-list pagination beyond the current 50-row views is Phase 5 polish in `backlog.md`.
 - ~~TD-10~~ Auth response under-specifies the User shape — **Fixed (`feat/td-10-auth-user-shape`)**: `@localloop/shared-types@1.3.0` exports `UserSummary`; backend `UserSummaryDto` and `UserProfileDto` both `implements UserSummary` (auth response now carries `dmPermission` + `createdAt`); mobile `User` interface re-exports `UserSummary` (drops the 4 dead fields `providerId`/`geohash`/`isActive`/`lastSeenAt`) and `auth.api.ts:mapToAuthResponse` is a direct pass-through.
 - ~~TD-13~~ `MessagesModule` ↔ `DirectMessagesModule` cycle — **Fixed (`refactor/realtime-module`)**: `ChatGateway` is owned by `RealtimeModule`; `MessagesModule` exports only group-message use cases; `DirectMessagesModule` emits HTTP-triggered realtime side effects through `RealtimeEventsModule`; no `forwardRef` remains between Messages and DirectMessages. Gateway behavior is split across realtime services while `/chat` event names, room names, and payloads remain unchanged.
 

@@ -120,7 +120,7 @@ The `QueryClient` is instantiated once in `src/infra/react-query/client.ts` and 
 
 ### Rationale
 
-Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicated loading/error/retry boilerplate. The chat hook (`useGroupChat`) is the pilot — history via `useInfiniteQuery`, optimistic `sendMessage`, socket events writing into the same cache. Remaining surfaces migrate under TD-09 (see status.md "RQ migration backlog").
+Before RQ, every screen re-fetched on mount, had no optimistic UI, and duplicated loading/error/retry boilerplate. The chat hook (`useGroupChat`) was the pilot — history via `useInfiniteQuery`, optimistic `sendMessage`, socket events writing into the same cache. TD-09 is closed; new REST server state must continue to use React Query hooks and write realtime effects into the same query cache.
 
 ---
 

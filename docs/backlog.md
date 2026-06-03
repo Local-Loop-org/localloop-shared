@@ -14,6 +14,8 @@
 - [ ] LGPD: `DELETE /users/me` (account deletion, data erasure)
 - [ ] Load testing on WebSocket gateway
 - [ ] Fix: make `anchorLabel` optional on group creation — API allows null/empty; `CreateGroupScreen` removes the required-field validation on the anchor name input; existing groups with null label render the `AnchorType` display string as fallback everywhere a label is shown.
+- [ ] Large-list pagination polish: `GroupMembersScreen` and `MyGroupsScreen` currently operate on the first loaded page / 50-row view. Add infinite pagination and cross-page search/count behavior when real product usage shows groups or memberships regularly exceed that size.
+- [ ] Push notification avatar rendering: Android strict top-left large-icon is blocked by the current Expo push payload (`richContent.image` is big-picture, not `largeIcon`), and iOS avatar attachments require a Notification Service Extension. Do not start until native/dev-build or FCM customization is approved.
 
 ### Security improvements
 
@@ -28,25 +30,6 @@
 - [ ] Empty-state copy when the user has zero conversations and zero requests
 
 > Full E2E suite on CI is tracked separately under [testing-backlog.md](./testing-backlog.md).
-
----
-
-## RQ migration backlog (TD-09) — remaining
-
-Pilot landed in Phase 3 Slice 1 (`useGroupChat`: `useInfiniteQuery` for history + optimistic `sendMessage`). Closed migrations are in [done.md](./done.md). Remaining migrations, each in its own `refactor/rq-<slug>` branch:
-
-**HTTP cache — convert `useState + useEffect` fetch calls to `useQuery`**
-
-- [ ] `GET /users/me` (currently only called inside auth flow) — wrap when a user-profile screen exists.
-
-**Optimistic mutations — convert to `useMutation` with `onMutate` / rollback**
-
-- [ ] `joinGroup` — optimistic `myRole` flip (OPEN → member, APPROVAL_REQUIRED → local pending state)
-- [ ] `leaveGroup` — optimistic removal + navigate on success
-- [ ] `banMember` — optimistic removal from members list (already done manually — port to mutation)
-- [ ] `unbanMember` — optimistic removal from banned list + optional restore path if the API returns the active member shape
-- [ ] `resolveJoinRequest` — optimistic removal from pending list + `memberCount` bump on approve (already done manually — port to mutation)
-- [ ] `updateUserProfile` (PATCH /users/me) — optimistic update of `useAuthStore` user; rollback on failure
 
 ---
 
