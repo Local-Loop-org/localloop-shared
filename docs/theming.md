@@ -5,33 +5,36 @@
 > Values are lifted from the Claude Design handoff bundle ("LocalLoop — Design
 > System", v1.0, 26 May 2026). When this doc and the code disagree, the code wins.
 
-## Status: Phase 1 shipped, Phase 2 pending
+## Status: Phase 1 + Phase 2 shipped ✅
 
-The design system + theming **infrastructure** is in place. The live in-place
-Light/Dark toggle is **not** fully wired across screens yet — that is Phase 2.
+The design system, theming **infrastructure**, and the full render-time
+migration are all in place. The live in-place Light/Dark toggle now repaints
+**every** screen instantly.
 
 - **Phase 1 (done):** both palettes with exact design values, the radius scale,
   the two fonts (Space Grotesk + JetBrains Mono), the theme store, `useTheme()` /
   `useThemedStyles()` hooks, navigation theme + StatusBar following the mode, and
   the Profile Light/Dark toggle persisting the preference.
-- **Phase 2 (pending):** convert the ~60 `StyleSheet.create` sites to read colors
-  at render time so the toggle repaints every screen instantly (recipe below).
+- **Phase 2 (done):** every `StyleSheet.create` site reads the active palette at
+  render time (recipe below). The backward-compat `colors`/`typography` dark
+  singletons were **removed** from `theme/index.ts` — a clean `tsc` proves no file
+  reads the static palette. 71 jest suites / 564 tests green.
 
 ### Why two phases — the technical constraint
 
 React Native's `StyleSheet.create()` resolves color values **once, at module
-load**, and bakes them in. So updating a centralized palette cannot repaint a
-already-rendered screen. To switch theme at runtime a style must be created at
-**render time** from the active palette. Until a screen is migrated, it keeps
-the static `colors` import and renders in **dark** (the design's default —
-"light is parity, not the default"). Switching to Light today repaints only
-render-time surfaces (StatusBar, navigation background, migrated components).
+load**, and bakes them in. So updating a centralized palette cannot repaint an
+already-rendered screen — a style must be created at **render time** from the
+active palette. Phase 1 wired that machinery (`useTheme()` / `useThemedStyles()`)
+on a few surfaces; Phase 2 was the mechanical migration of every remaining
+`StyleSheet.create` site so the whole app re-styles on toggle. Dark remains the
+design's default ("light is parity, not the default").
 
 ## Palettes
 
 Both palettes expose identical keys (enforced by `lightColors: ThemeColors`).
-Existing app token names are kept so the ~87 importers compile unchanged; design
-tokens are mapped onto them.
+Existing app token names are kept (design tokens mapped onto them), so consumers
+read them straight off `useTheme().colors`.
 
 | `colors.*` key | Design token | Dark | Light |
 |---|---|---|---|
@@ -53,7 +56,10 @@ tokens are mapped onto them.
 Plus semantic alpha tokens for de-inlining the prototypes' inline `rgba(...)`:
 `duotoneSoftFrom`/`duotoneSoftTo`, `anchorTileBorder`, `primarySoft`/
 `primarySoft08`/`primaryBorder`, `dangerSoft`/`dangerBorder`, `scrim`,
-`quotedReplyBg`.
+`quotedReplyBg`, and `switchTrackOff` (Switch/segmented "off" track, added in
+Phase 2). A few one-off translucent fills are kept as `` `${c.token}AA` ``
+template literals at render (e.g. the green "live" badge, the accent-2 DM-request
+banner) rather than minted as new tokens.
 
 ## Scales, fonts, governance
 
@@ -62,46 +68,50 @@ Plus semantic alpha tokens for de-inlining the prototypes' inline `rgba(...)`:
 - `fonts`: Space Grotesk (content) via `fonts.display`/`displayMedium`/`displaySemibold`/`displayBold`; JetBrains Mono (sensed data — distance, timestamps, counts, status) via `fonts.mono`/`monoMedium`/`monoSemibold`/`monoBold`. Loaded by `useFonts` in `RootNavigator` (render gated until ready). Space Grotesk is applied app-wide as the default via `applyDefaultFont()` (a `Text`/`TextInput` render patch — Phase-1 stopgap; React 19 deprecates `Text.defaultProps`).
 - Governance rules from the design: never add a third hue (extend cyan/violet or use live/danger); mono is for sensed data only; pill (999) for actions, lg (14) for content, md (12) for inputs; the live pulser is the only looping animation; light mode is parity, not the default.
 
-## Phase 2 — migration recipe
+## Phase 2 — migration recipe (as shipped)
 
-Goal: every screen reads the live palette so the toggle repaints instantly. Two
-tiers, depending on whether the file may use hooks.
+Goal: every screen reads the live palette so the toggle repaints instantly. One
+uniform recipe was used **everywhere** — `shared/ui`, screen `layout/styles.ts`,
+and their leaf sub-components alike. (Decision: leaf layout components call
+`useThemedStyles` directly rather than threading a `colors` prop down — this
+softens architecture.md's "pure layout = no hooks/store reads" rule, accepted in
+exchange for far less boilerplate and tests that need no new props.)
 
-### Tier A — `shared/ui/**` and other hookable components
 ```ts
 // before
 const styles = StyleSheet.create({ box: { color: colors.text } });
-// after
-import { useThemedStyles } from '@/shared/theme/useThemedStyles';
-import { useTheme } from '@/shared/theme/useTheme';
+// after — module level
 import type { ThemeColors } from '@/shared/theme';
-// inside the component:
-const styles = useThemedStyles(createStyles);
-const { colors } = useTheme();            // only for non-StyleSheet color props
-// module level:
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({ box: { color: c.text } });
+// after — inside the component
+import { useThemedStyles } from '@/shared/theme/useThemedStyles';
+import { useTheme } from '@/shared/theme/useTheme';
+const styles = useThemedStyles(createStyles);
+const { colors } = useTheme();   // only for non-StyleSheet color props:
+                                 // gradient arrays, Icon color=, placeholderTextColor, SVG fill/stop
 ```
 See [`Avatar.tsx`](../../localloop-mobile/src/shared/ui/Avatar.tsx) — the reference conversion.
 
-### Tier B — pure screen layouts (`screens/*/layout/`)
-`layout/index.tsx` is pure (no hooks/store reads) and `layout/styles.ts` may
-import only `@/shared/theme` + React Native. So the **container** reads the
-theme and passes `colors` down; the layout calls a plain factory:
-```ts
-// styles.ts
-export const createStyles = (c: ThemeColors) => StyleSheet.create({ ... });
-// container index.tsx
-const { colors } = useTheme();
-return <Layout colors={colors} ... />;
-// layout/index.tsx (still pure — createStyles is a plain function, not a hook)
-const styles = createStyles(colors);
-```
+**Notes from the migration:**
+- Shared `styles.ts` files export a `createStyles(c)` factory; every consumer
+  calls `useThemedStyles(createStyles)`. Factories sharing one source hit the same
+  WeakMap cache → one StyleSheet per palette, no churn.
+- In `.tsx` files that own a local StyleSheet *and* use `colors` for props, the
+  factory parameter is named `colors` (so the StyleSheet body is untouched) while
+  the component reads its own `const { colors } = useTheme()`.
+- Module-level color tables (e.g. `StatusPill`, `RolePill`) resolve their color
+  via `useTheme()` inside the component instead of baking it at module load.
+- `createTypography(colors)` replaced the dark-baked `typography` in the Login /
+  Onboarding / Map screens.
 
-### Inventory (Phase 2 scope)
-- 12 screen `layout/styles.ts` + ~59 `StyleSheet.create` sites total.
-- 21 files with inline `rgba(...)` → move onto the semantic alpha tokens.
-- 6 files with hardcoded `#hex` outside the theme dir → tokenize.
-- Final step: remove the backward-compat `colors`/`typography` dark singletons
-  from `theme/index.ts`; a clean `tsc` then proves nothing reads the static
+### Inventory (Phase 2 — done)
+- 12 screen `layout/styles.ts` + ~62 `StyleSheet.create` sites migrated.
+- Inline `rgba(...)` / hardcoded `#hex` moved onto the semantic tokens (incl. the
+  SVG hero-glow `#B06CFF` → `colors.accent2`, `FailedMessageWarning` `#fff` →
+  `colors.white`).
+- **Final step (done):** removed the backward-compat `colors`/`typography` dark
+  singletons from `theme/index.ts`; a clean `tsc` proves nothing reads the static
   palette anymore.
+- Optional leftover (deferred): replace the `applyDefaultFont()` render patch with
+  a themed `Text` primitive + the full per-component type scale.
