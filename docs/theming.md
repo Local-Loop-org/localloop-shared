@@ -56,8 +56,10 @@ read them straight off `useTheme().colors`.
 Plus semantic alpha tokens for de-inlining the prototypes' inline `rgba(...)`:
 `duotoneSoftFrom`/`duotoneSoftTo`, `anchorTileBorder`, `primarySoft`/
 `primarySoft08`/`primaryBorder`, `dangerSoft`/`dangerBorder`, `scrim`,
-`quotedReplyBg`, and `switchTrackOff` (Switch/segmented "off" track, added in
-Phase 2). A few one-off translucent fills are kept as `` `${c.token}AA` ``
+`quotedReplyBg`, `switchTrackOff` (Switch/segmented "off" track), and
+`surfaceOverlay` (translucent surface chrome floating over previews/media, e.g.
+the group radius-preview distance badge) — the latter two added in Phase 2. A
+few one-off translucent fills are kept as `` `${c.token}AA` ``
 template literals at render (e.g. the green "live" badge, the accent-2 DM-request
 banner) rather than minted as new tokens.
 
