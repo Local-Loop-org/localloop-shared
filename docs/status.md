@@ -127,7 +127,6 @@ No open decisions blocking active work. Resolved decisions archived in [`done.md
 
 | ID | Description | Introduced | Priority |
 |----|-------------|-----------|---------|
-| TD-11 | API spec files duplicate repository mock builders — `buildGroupRepoMock` and `buildMessageRepoMock` extracted (done). Remaining: `IUserRepository` mock repeated across 7 specs in auth/user/messages modules → `src/modules/auth/test/user-repo.mock.ts`. | Test maintenance | Low |
 | TD-12 | Messages module consolidation — group chat sends only via WebSocket, DM sends via HTTP+WebSocket. Nearly identical `SendMessageUseCase` logic, entity, and policy enforcement in two modules. Consolidate to single use case or add HTTP POST to group chat to make both symmetric. Blocks media-messaging and edit features if left unaddressed. | Phase 3 Slice 1 + Phase 4 DM API | Medium |
 
 > Closed TD entries archived in [`done.md` § Closed technical debt](./done.md#closed-technical-debt).
