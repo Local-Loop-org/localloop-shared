@@ -337,6 +337,8 @@ Response 200:
       "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
       "anchorLabel": string,
       "distanceMeters": number,
+      "anchorLat": number,
+      "anchorLng": number,
       "privacy": "open" | "approval_required",
       "memberCount": number,
       "myRole": "owner" | "moderator" | "member" | null,
@@ -346,7 +348,8 @@ Response 200:
 }
 
 Notes:
-  - distanceMeters is the haversine distance between the requesting user's lat/lng and the group's stored anchor_lat/anchor_lng. Raw group coordinates are never returned.
+  - distanceMeters is the haversine distance between the requesting user's lat/lng and the group's stored anchor_lat/anchor_lng.
+  - anchorLat/anchorLng are the group's public anchor coordinates (a public landmark, not a user). Per architecture.md "Location privacy" they may be returned for map markers + distance UI. No user coordinates are ever returned.
   - Returns groups whose anchorGeohash shares a prefix with the user's geohash or is a neighbor cell.
   - Groups where the caller's group_members.status = 'banned' are excluded from the response entirely.
   - myRole reflects the caller's role only when memberStatus = 'active'; PENDING and non-members both receive null.

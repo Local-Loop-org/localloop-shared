@@ -138,6 +138,12 @@ export interface NearbyGroup {
   anchorType: AnchorType;
   anchorLabel: string;
   distanceMeters: number;
+  /**
+   * Public group anchor coordinates (a public landmark, not a user). See
+   * architecture.md "Location privacy". Used for map markers + distance UI.
+   */
+  anchorLat: number;
+  anchorLng: number;
   privacy: GroupPrivacy;
   memberCount: number;
   /** null unless the caller is an ACTIVE member of this group */
