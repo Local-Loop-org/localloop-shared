@@ -51,6 +51,7 @@ Vertical + moderation slices shipped — see [`done.md` § Phase 2 (closed slice
 **Remaining**
 
 - [ ] Redis cache for `GET /groups/nearby` (TTL = 5min per geohash cell) — unblocked (DP-01 resolved → Upstash).
+- [ ] **Anchor relocation on update (API)**: `PATCH /groups/:id` must accept `lat`/`lng` so owners/mods can move a group's anchor from the GroupDetail edit map. Add `lat?`/`lng?` to `UpdateGroupDto` (require both together), have `UpdateGroupUseCase` recompute `anchorGeohash = coordinatesToGeohash(lat, lng)` (mirrors [`create-group.use-case.ts`](../../localloop-api/src/modules/groups/application/use-cases/create-group/create-group.use-case.ts)) and pass `anchorLat`/`anchorLng`/`anchorGeohash` through `groupRepo.updateGroup` (+ `UpdateGroupData`). Note the geohash change moves the group in nearby discovery. **Mobile is already wired** — `GroupEditDraft`/`UpdateGroupBody` send `lat`/`lng` and the edit map is interactive; they're stripped by the API's `whitelist: true` pipe today, so the anchor visibly reverts on refetch until this lands. Update `update-group.use-case.spec.ts`.
 
 > Pending integration tests + Maestro E2E for Phase 2 → [`testing-backlog.md`](./testing-backlog.md).
 
