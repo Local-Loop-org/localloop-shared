@@ -13,7 +13,6 @@
 - [ ] Moderation: soft-delete messages, ban flow
 - [ ] LGPD: `DELETE /users/me` (account deletion, data erasure)
 - [ ] Load testing on WebSocket gateway
-- [ ] Fix: make `anchorLabel` optional on group creation — API allows null/empty; `CreateGroupScreen` removes the required-field validation on the anchor name input; existing groups with null label render the `AnchorType` display string as fallback everywhere a label is shown.
 - [ ] Large-list pagination polish: `GroupMembersScreen` and `MyGroupsScreen` currently operate on the first loaded page / 50-row view. Add infinite pagination and cross-page search/count behavior when real product usage shows groups or memberships regularly exceed that size.
 - [ ] Push notification avatar rendering: Android strict top-left large-icon is blocked by the current Expo push payload (`richContent.image` is big-picture, not `largeIcon`), and iOS avatar attachments require a Notification Service Extension. Do not start until native/dev-build or FCM customization is approved.
 

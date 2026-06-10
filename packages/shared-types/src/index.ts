@@ -136,7 +136,7 @@ export interface NearbyGroup {
   name: string;
   description: string | null;
   anchorType: AnchorType;
-  anchorLabel: string;
+  anchorLabel: string | null;
   distanceMeters: number;
   /**
    * Public group anchor coordinates (a public landmark, not a user). See
@@ -177,7 +177,7 @@ export interface MyGroup {
   id: string;
   name: string;
   anchorType: AnchorType;
-  anchorLabel: string;
+  anchorLabel: string | null;
   memberCount: number;
   myRole: MemberRole;
   lastActivityAt: string;

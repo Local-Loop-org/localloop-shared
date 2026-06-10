@@ -335,7 +335,7 @@ Response 200:
       "name": string,
       "description": string | null,
       "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
-      "anchorLabel": string,
+      "anchorLabel": string | null,
       "distanceMeters": number,
       "anchorLat": number,
       "anchorLng": number,
@@ -372,7 +372,7 @@ Response 200:
       "id": string,
       "name": string,
       "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
-      "anchorLabel": string,
+      "anchorLabel": string | null,
       "memberCount": number,
       "myRole": "owner" | "moderator" | "member",
       "lastActivityAt": string,  // ISO 8601; last message or joined_at fallback
@@ -406,7 +406,7 @@ Request body:
   "name": string,          // max 80 chars
   "description": string,   // optional, max 500 chars
   "anchorType": "establishment" | "neighborhood" | "condo" | "event" | "city",
-  "anchorLabel": string,   // max 100 chars
+  "anchorLabel": string | null,   // optional, max 100 chars; omitted/blank/null stores null
   "lat": number,           // stored as anchor_lat and also derived to anchor_geohash server-side
   "lng": number,
   "privacy": "open" | "approval_required"
@@ -417,7 +417,7 @@ Response 201:
   "id": string,
   "name": string,
   "anchorType": string,
-  "anchorLabel": string,
+  "anchorLabel": string | null,
   "privacy": string,
   "memberCount": 1,
   "myRole": "owner"
@@ -441,7 +441,9 @@ Response 200:
   "name": string,
   "description": string | null,
   "anchorType": string,
-  "anchorLabel": string,
+  "anchorLabel": string | null,
+  "anchorLat": number,
+  "anchorLng": number,
   "privacy": string,
   "radiusKm": number,
   "memberCount": number,
@@ -465,12 +467,18 @@ Request body (all fields optional):
 {
   "name": string,        // 1–80 chars
   "description": string | null,  // max 500 chars
-  "anchorLabel": string, // 1–100 chars
+  "anchorLabel": string | null, // optional, max 100 chars; null/blank clears it
   "privacy": "open" | "approval_required",
-  "radiusKm": number     // RADIUS_KM_MIN–RADIUS_KM_MAX
+  "radiusKm": number,    // RADIUS_KM_MIN–RADIUS_KM_MAX
+  "lat": number,         // optional, requires lng; moves anchor_lat and anchor_geohash
+  "lng": number          // optional, requires lat; moves anchor_lng and anchor_geohash
 }
 
 Response 200: (same shape as GET /groups/:id)
+
+Notes:
+  - lat/lng must be provided together; sending only one coordinate returns 422 VALIDATION_ERROR.
+  - Changing lat/lng recomputes anchor_geohash, so the group may move between cells in nearby discovery.
 
 Errors:
   403 NOT_PRIVILEGED — caller is not owner or moderator

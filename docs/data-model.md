@@ -44,7 +44,7 @@
 | anchor_lat | NUMERIC(9,6) | NOT NULL | Anchor latitude (used for distance computation; never returned to clients) |
 | anchor_lng | NUMERIC(9,6) | NOT NULL | Anchor longitude (used for distance computation; never returned to clients) |
 | anchor_geohash | CHAR(6) | NOT NULL | Anchor geohash for cell-based discovery (never returned to clients) |
-| anchor_label | VARCHAR(100) | NOT NULL | Human-readable location label |
+| anchor_label | VARCHAR(100) | nullable | Optional human-readable location label |
 | privacy | group_privacy_enum | NOT NULL, DEFAULT `open` | Join policy |
 | owner_id | UUID | FK → users.id, NOT NULL | Creator |
 | member_count | INT | NOT NULL, DEFAULT 0 | Denormalized counter |
