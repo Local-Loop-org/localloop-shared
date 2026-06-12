@@ -409,7 +409,9 @@ Request body:
   "anchorLabel": string | null,   // optional, max 100 chars; omitted/blank/null stores null
   "lat": number,           // stored as anchor_lat and also derived to anchor_geohash server-side
   "lng": number,
-  "privacy": "open" | "approval_required"
+  "privacy": "open" | "approval_required",
+  "sendTextPerm": "admin_only" | "members_in_radius" | "all_members",  // optional, default all_members
+  "sendMediaPerm": "admin_only" | "members_in_radius" | "all_members"  // optional, default all_members
 }
 
 Response 201:
@@ -447,6 +449,8 @@ Response 200:
   "privacy": string,
   "radiusKm": number,
   "memberCount": number,
+  "sendTextPerm": "admin_only" | "members_in_radius" | "all_members",
+  "sendMediaPerm": "admin_only" | "members_in_radius" | "all_members",
   "myRole": "owner" | "moderator" | "member" | null,  // null = not a member
   "createdAt": string  // ISO-8601
 }
@@ -471,7 +475,9 @@ Request body (all fields optional):
   "privacy": "open" | "approval_required",
   "radiusKm": number,    // RADIUS_KM_MIN–RADIUS_KM_MAX
   "lat": number,         // optional, requires lng; moves anchor_lat and anchor_geohash
-  "lng": number          // optional, requires lat; moves anchor_lng and anchor_geohash
+  "lng": number,         // optional, requires lat; moves anchor_lng and anchor_geohash
+  "sendTextPerm": "admin_only" | "members_in_radius" | "all_members",
+  "sendMediaPerm": "admin_only" | "members_in_radius" | "all_members"
 }
 
 Response 200: (same shape as GET /groups/:id)
@@ -1107,6 +1113,15 @@ payload:
   "storageKey": string | null,   // from media upload flow
   "mediaType": "image" | "video" | null
 }
+notes: text sends are gated by the group's send_text_perm policy:
+         - all_members → any ACTIVE member.
+         - admin_only → sender must be OWNER or MODERATOR.
+         - members_in_radius → the sender's users.geohash cell must equal the
+           group's anchor_geohash or one of its 8 neighbor cells; senders with
+           no stored geohash are rejected.
+       Violations emit an ERROR event with code SEND_PERMISSION_DENIED (403 on
+       any future HTTP path). send_media_perm is persisted with the same enum
+       but is not enforced yet — media sending ships with Phase 3 Slice 2.
 
 event: join_dm
 payload: { "userId": string }  // the other participant; ack { ok: boolean }
