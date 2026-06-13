@@ -46,6 +46,8 @@
 | anchor_geohash | CHAR(6) | NOT NULL | Anchor geohash for cell-based discovery (never returned to clients) |
 | anchor_label | VARCHAR(100) | nullable | Optional human-readable location label |
 | privacy | group_privacy_enum | NOT NULL, DEFAULT `open` | Join policy |
+| send_text_perm | message_permission_enum | NOT NULL, DEFAULT `all_members` | Who may send text messages |
+| send_media_perm | message_permission_enum | NOT NULL, DEFAULT `all_members` | Who may send media (enforced in Phase 3 Slice 2) |
 | owner_id | UUID | FK → users.id, NOT NULL | Creator |
 | member_count | INT | NOT NULL, DEFAULT 0 | Denormalized counter |
 | is_active | BOOLEAN | NOT NULL, DEFAULT true | |
@@ -235,6 +237,11 @@ Durable allow-list, one row per acceptance. Once a row exists, `SendDirectMessag
 'open'              -- user joins immediately
 'approval_required' -- creates a group_join_request (pending)
 
+-- message_permission_enum
+'admin_only'        -- only OWNER/MODERATOR may send
+'members_in_radius' -- sender's users.geohash must be the group anchor cell or one of its 8 neighbors
+'all_members'       -- any ACTIVE member
+
 -- member_role_enum
 'owner'      -- full permissions, created the group
 'moderator'  -- can remove messages and members
@@ -271,3 +278,4 @@ See `architecture.md` for full rationale. Summary: geohash for privacy (no coord
 | 1716000000000-AddPushNotifications | push permission status + push_devices registry | 2026-05-13 |
 | 1717000000000-CreateDirectMessages | direct_messages table + idx_dm_conversation functional index | 2026-05-16 |
 | 1717100000000-AddDmInboxSupport | dm_requests, dm_conversation_state, dm_permission_exceptions | 2026-05-17 |
+| 1717500000000-AddGroupSendPermissions | message_permission_enum + groups.send_text_perm/send_media_perm | 2026-06-12 |
